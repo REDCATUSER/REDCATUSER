@@ -1,0 +1,31 @@
+Extract of Trigger Rally 0.6.6.1 doc/DATA_AUTHORS.txt:
+
+Author and licence info for files under data/ directory.
+
+GPL = GNU General Public License v2 or later ( http://www.gnu.org/licenses/gpl.txt )
+CC0 (PD) = Creative Commons Zero 1.0 Universal Public Domain Dedication ( http://creativecommons.org/publicdomain/zero/1.0/ )
+CCBY 3.0 = Creative Commons Attribution 3.0 Unported ( http://creativecommons.org/licenses/by/3.0/ )
+
+
+cognito perceptu
+	sounds/gravel.wav (CC0, PD), source: http://www.freesound.org/people/cognito%20perceptu/sounds/97605/
+	
+
+Iwan 'qubodup' Gabovitch
+	maps/eversnake/c.jpg (GPL)
+	maps/eversnake/f.jpg (GPL)
+	maps/eversnake/h.png (GPL)
+	maps/smallswirl/c.jpg (GPL)
+	maps/smallswirl/f.jpg (GPL)
+	maps/smallswirl/h.jpg (GPL)
+	sounds/bang.wav (CC0, PD) source: http://www.freesound.org/people/qubodup/sounds/151624/
+	sounds/engine.wav (CC0, PD) source: http://opengameart.org/content/car-engine-loop-96khz-4s
+	textures/dial_rev.png (GPL)
+	textures/noise.png (CC0, PD)
+	textures/rev_needle.png (CC0, PD)
+	textures/veg/cactus1.png (CC0, PD) source: http://opengameart.org/content/cactus-sprite-texture-0
+	textures/veg/palmy.png (CC0, PD) source: http://opengameart.org/content/palm-plant-sprite-1024x1024
+
+kougloff, Iwan Gabovitch, Liviu Andronic
+	sounds/gear.wav (CC0, PD) source: http://www.freesound.org/people/kougloff/sounds/117558/
+

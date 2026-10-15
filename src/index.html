@@ -1,1 +1,75 @@
-<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23122026'/%3E%3Ctext x='8' y='45' font-size='36' fill='%23d8ff59'%3ERH%3C/text%3E%3C/svg%3E"><title>Rally Horizon 3D</title><link rel="stylesheet" href="style.css"><body><canvas id="game"></canvas><header><div class="brand">RH<span>RALLY HORIZON / 3D</span></div><button id="camera">VUE : POURSUITE · C</button><button id="sound">SON : ON</button><button id="pause">PAUSE · ÉCHAP</button></header><aside id="hud"><div class="label">SPÉCIALE <span id="stageName"></span></div><strong id="time">00:00.00</strong><div id="best">RECORD —</div><div id="progress">PORTE 0 / 12</div><div id="notice">SUIVEZ LES PORTES VERTES</div></aside><section id="telemetry"><div><span class="label">RAPPORT</span><b id="gear">1</b><small id="gearMode">AUTO</small></div><div><b id="speed">0</b><span>KM/H</span><div class="rpm"><i id="rpmBar"></i></div><small><span id="rpm">900</span> TR/MIN</small></div></section><canvas id="map" width="180" height="150"></canvas><footer>↑ / Z ACCÉLÉRER · ↓ / S FREIN / RECUL · ← → / Q D TOURNER · ESPACE FREIN À MAIN<br>C CAMÉRA · 1 / 2 / 3 VUES · M AUTO / MANUEL · E / A RAPPORT + / − · R REPLACER</footer><section id="menu" class="overlay"><div class="panel"><div class="eyebrow">GRAVIER. RÉGIME. TRAJECTOIRE.</div><h1>AU PLUS PRÈS<br>DE LA <em>PISTE.</em></h1><p>Un rallye 3D au volant. Trois spéciales, trois vues.<br>Poursuite, capot ou cockpit avec pilote animé.</p><div id="tracks"></div><div class="settings"><label><input type="checkbox" id="practice"> Entraînement</label><label><input type="checkbox" id="manual"> Boîte manuelle</label><label>Volume <input id="volume" type="range" min="0" max="100" value="65"></label><label>Qualité <select id="quality"><option value="low">Légère</option><option value="medium" selected>Standard</option></select></label></div><button class="primary" id="start">PRENDRE LE DÉPART →</button><small>Hors ligne · flèches ou ZQSD / WASD · C pour changer de caméra</small><small id="status"></small></div></section><section id="result" class="overlay hidden"><div class="panel"><div class="eyebrow" id="resultTitle">SPÉCIALE TERMINÉE</div><h1 id="resultTime"></h1><p id="resultInfo"></p><button class="primary" id="again">REJOUER →</button><button id="home">CHOISIR UNE SPÉCIALE</button></div></section><script src="game.js"></script></body></html>
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101716">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23101716'/%3E%3Cpath d='M12 46V16h21q14 0 14 11 0 8-8 10l12 9H35L23 35v11zm11-20h10q4 0 4-3H23z' fill='%23d7ff5c'/%3E%3C/svg%3E">
+<title>Rally Horizon — First Edition</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-mode="menu">
+<canvas id="game" aria-label="Vue 3D de la spéciale"></canvas>
+<header id="raceHeader">
+  <div class="brand">RH<span>RALLY HORIZON</span></div>
+  <button id="camera">VUE : POURSUITE · C</button>
+  <button id="headlights">PHARES : OFF · H</button>
+  <button id="sound">SON : ON</button>
+  <button id="pause">PAUSE · ÉCHAP</button>
+</header>
+<aside id="hud">
+  <div class="label">SPÉCIALE <span id="stageName"></span></div>
+  <strong id="time">00:00.00</strong>
+  <div id="best">RECORD —</div>
+  <div class="hud-divider"></div>
+  <div id="progress">CHECKPOINT 0 / 12</div>
+  <div id="distance">ARRIVÉE — KM</div>
+  <div id="notice">SUIVEZ LA ROUTE JUSQU’À L’ARRIVÉE</div>
+</aside>
+<div id="countdown" class="hidden" role="status" aria-live="assertive">3</div>
+<div id="paceNote" role="status" aria-live="polite">PRÊT AU DÉPART</div>
+<section id="telemetry">
+  <div><span class="label">RAPPORT</span><b id="gear">1</b><small id="gearMode">AUTO</small></div>
+  <div><b id="speed">0</b><span> KM/H</span><div class="rpm"><i id="rpmBar"></i></div><small><span id="rpm">900</span> TR/MIN</small></div>
+</section>
+<canvas id="map" width="180" height="150" aria-label="Carte de la spéciale"></canvas>
+<footer id="raceControls">↑ / Z ACCÉLÉRER · ↓ / S FREIN / RECUL · ← → / Q D TOURNER · ESPACE FREIN À MAIN<br>C OU 1 / 2 / 3 CAMÉRA · MAJ RAPPORT + · CTRL GAUCHE RAPPORT − · M BOÎTE AUTO / MANUELLE · H PHARES · R REPLACER</footer>
+
+<section id="menu" class="menu-shell">
+  <header class="menu-header"><a class="wordmark" href="#" aria-label="Rally Horizon, accueil">R<span>H</span><i>RALLY<br>HORIZON</i></a><div class="edition">FIRST EDITION<span>LE RALLYE. SANS DÉTOUR.</span></div></header>
+  <div class="menu-hero">
+    <div class="hero-copy"><div class="eyebrow">01 / PRENEZ LE DÉPART</div><h1>LA ROUTE.<br><em>VOTRE LÉGENDE.</em></h1><p>Un pilote. Un copilote. Une seule ligne d’arrivée.</p></div>
+    <div class="hero-art" aria-hidden="true"><div class="contour contour-a"></div><div class="contour contour-b"></div><div class="route-line"></div><span class="hero-coordinate">44° 59′ N<br>06° 07′ E</span><div class="hero-number">01</div><div class="hero-tag">18 SPÉCIALES <b>/</b> 5 CHAMPIONNATS</div></div>
+  </div>
+  <nav id="menuNav" aria-label="Menu principal"><button data-tab="championship" class="active selected"><span>01</span> CHAMPIONNAT</button><button data-tab="free"><span>02</span> SPÉCIALE LIBRE</button><button data-tab="garage"><span>03</span> GARAGE</button><button data-tab="options"><span>04</span> OPTIONS</button></nav>
+
+  <main class="menu-content">
+    <section id="panel-championship" class="menu-panel">
+      <div class="section-heading"><div><span class="eyebrow">VOTRE CARRIÈRE</span><h2>Du premier virage à la légende.</h2></div><span id="careerProgress" class="subtle">5 trophées · 5 voitures à débloquer</span></div>
+      <div class="championship-layout"><div id="championships" class="championship-grid"></div><aside class="detail-panel"><div id="championshipInfo"><div class="eyebrow">CHOISISSEZ VOTRE DÉFI</div><h3>Trois spéciales.<br>Un trophée.</h3><p>Le temps cumulé décide du classement face à six adversaires. Gagnez pour débloquer la prochaine épreuve et une voiture.</p></div><button class="primary" id="startChampionship">PRENDRE LE DÉPART <span>↗</span></button><button id="resumeChampionship" class="secondary hidden">REPRENDRE LE CHAMPIONNAT →</button></aside></div>
+      <p class="panel-footnote">Adversaires au classement uniquement · Progression enregistrée sur cet ordinateur</p>
+    </section>
+
+    <section id="panel-free" class="menu-panel hidden">
+      <div class="section-heading"><div><span class="eyebrow">LE PLAISIR DU CHRONO</span><h2>Une spéciale, votre rythme.</h2></div><span class="subtle">6 destinations · routes à sens unique</span></div>
+      <div class="free-layout"><div id="tracks" class="track-grid"></div><aside class="detail-panel"><div id="stageInfo"><h3>Choisissez une spéciale</h3><p>Neige, sable, asphalte ou gravier : trouvez votre terrain.</p></div><label class="check-label"><input type="checkbox" id="practice"> Entraînement sans classement</label><button class="primary" id="start">LANCER LA SPÉCIALE <span>↗</span></button></aside></div>
+    </section>
+
+    <section id="panel-garage" class="menu-panel hidden">
+      <div class="section-heading"><div><span class="eyebrow">VOTRE ATELIER</span><h2>Préparez votre prochaine victoire.</h2></div><span class="subtle">Réglages libres · aucun achat</span></div>
+      <div class="garage-layout"><div class="garage-showcase"><div id="garagePreview" aria-label="Aperçu 3D de la voiture sélectionnée"></div><div id="carInfo"></div></div><div class="garage-settings"><div id="cars" class="car-list"></div><div class="tuning-grid"><label>Livrée<input type="color" id="carColor" value="#e74e35"></label><label>Pneumatiques<select id="tires"><option value="road">Asphalte</option><option value="gravel">Gravier</option><option value="snow" selected>Neige</option><option value="sand">Sable</option></select></label><label>Suspension<select id="suspension"><option value="soft">Souple</option><option value="balanced" selected>Équilibrée</option><option value="firm">Ferme</option></select></label><label>Étagement<select id="gearing"><option value="short">Court · relances</option><option value="balanced" selected>Équilibré</option><option value="long">Long · vitesse</option></select></label></div><p class="panel-footnote">Choisissez vos pneus selon la surface de la spéciale. Chaque réglage agit sur la conduite.</p></div></div>
+    </section>
+
+    <section id="panel-options" class="menu-panel hidden">
+      <div class="section-heading"><div><span class="eyebrow">À VOTRE FAÇON</span><h2>Gardez le contrôle.</h2></div><span class="subtle">Réglages enregistrés automatiquement</span></div>
+      <div class="options-layout"><div class="option-list"><label class="option-row"><div><strong>Boîte manuelle</strong><small>Maj : monter · Ctrl gauche : descendre</small></div><input type="checkbox" id="manual"></label><label class="option-row"><div><strong>Copilote</strong><small>Notes visuelles et annonces vocales si une voix française est disponible</small></div><input type="checkbox" id="copilot" checked></label><label class="option-row"><div><strong>Volume</strong><small>Moteur, pneus et copilote</small></div><input id="volume" type="range" min="0" max="100" value="72"></label><label class="option-row"><div><strong>Caméra de départ</strong><small>Changez aussi avec C ou les touches 1, 2 et 3</small></div><select id="cameraSetting"><option value="0">Poursuite</option><option value="1">Capot</option><option value="2">Cockpit</option></select></label><label class="option-row"><div><strong>Qualité graphique</strong><small>Réduisez la qualité pour gagner en fluidité</small></div><select id="quality"><option value="low">Légère</option><option value="medium" selected>Standard</option><option value="high">Élevée</option></select></label></div><aside class="controls-panel"><div class="eyebrow">MÉMO PILOTE</div><h3>Les bons réflexes.</h3><dl><div><dt>Accélérer / Freiner</dt><dd>↑ / ↓ · Z / S</dd></div><div><dt>Tourner</dt><dd>← / → · Q / D</dd></div><div><dt>Frein à main</dt><dd>Espace</dd></div><div><dt>Rapport + / −</dt><dd>Maj / Ctrl gauche</dd></div><div><dt>Boîte auto / manuelle</dt><dd>M</dd></div><div><dt>Phare allumé / éteint</dt><dd>H</dd></div><div><dt>Replacer (+5 s)</dt><dd>R</dd></div><div><dt>Pause</dt><dd>Échap</dd></div></dl></aside></div>
+    </section>
+  </main>
+  <div class="menu-footer"><span><i></i> JEU LOCAL · HORS LIGNE</span><span id="status" role="status">PRÉPARATION DU GARAGE…</span><span>RALLY HORIZON / FIRST EDITION</span></div>
+</section>
+
+<section id="pauseMenu" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle"><div class="panel compact"><div class="eyebrow">UN INSTANT AU STAND</div><h2 id="pauseTitle">EN PAUSE.</h2><p>La spéciale vous attend.</p><button id="resume" class="primary">REPRENDRE →</button><button id="quit" class="secondary">RETOUR AU MENU</button><small>Revenir au menu abandonne la spéciale en cours.</small></div></section>
+<section id="result" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="resultTitle"><div class="panel result-panel"><div class="eyebrow" id="resultTitle">SPÉCIALE TERMINÉE</div><h2 id="resultTime" class="result-time">00:00.00</h2><p id="resultInfo"></p><div id="standings"></div><div class="result-actions"><button class="primary" id="continue">SPÉCIALE SUIVANTE →</button><button id="again" class="secondary">REJOUER</button><button id="home" class="secondary">RETOUR AU MENU</button></div></div></section>
+<script src="game.js"></script>
+</body>
+</html>

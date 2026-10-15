@@ -11,7 +11,7 @@ permissions:
 jobs:
   windows:
     name: Construire le jeu Windows
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -25,6 +25,8 @@ jobs:
         run: npm ci
       - name: Vérifier la conduite et les circuits
         run: npm test
+      - name: Vérifier menus, caméras et progression
+        run: npm run test:browser
       - name: Construire installateur, portable et version navigateur
         shell: bash
         run: |
@@ -39,13 +41,24 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$build_status"
-      - name: Mettre le jeu à disposition
+      - name: Télécharger l’installateur Windows
         uses: actions/upload-artifact@v4
         with:
-          name: Rally-Horizon-3D-Windows
+          name: Windows-Installation
           if-no-files-found: error
           retention-days: 30
-          path: |
-            dist/Rally-Horizon-3D-Installation.exe
-            dist/Rally-Horizon-3D-Windows.exe
-            dist/Rally-Horizon-3D.html
+          path: dist/Rally-Horizon-3D-Installation.exe
+      - name: Télécharger la version portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-Portable
+          if-no-files-found: error
+          retention-days: 30
+          path: dist/Rally-Horizon-3D-Windows.exe
+      - name: Télécharger la version navigateur
+        uses: actions/upload-artifact@v4
+        with:
+          name: Navigateur-Hors-Ligne
+          if-no-files-found: error
+          retention-days: 30
+          path: dist/Rally-Horizon-3D.html
