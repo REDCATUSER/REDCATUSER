@@ -1,0 +1,39 @@
+name: Jeu Windows
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Construire le jeu Windows
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Installer les dépendances
+        run: npm ci
+      - name: Vérifier la conduite et les circuits
+        run: npm test
+      - name: Construire installateur, portable et version navigateur
+        run: npm run dist:win
+      - name: Mettre le jeu à disposition
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rally-Horizon-3D-Windows
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            dist/Rally-Horizon-3D-Installation.exe
+            dist/Rally-Horizon-3D-Windows.exe
+            dist/Rally-Horizon-3D.html

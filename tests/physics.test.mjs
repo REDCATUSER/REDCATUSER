@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createState,integrate,shift} from '../app/physics.js';
+const step=(s,input,seconds,dist=0)=>{for(let i=0;i<Math.round(seconds*120);i++)integrate(s,{throttle:0,brake:0,steer:0,handbrake:false,...input},1/120,5.5,dist)};
+test('automatic acceleration shifts up and braking stops the car',()=>{const s=createState();step(s,{throttle:1},12);assert.ok(s.speed>25);assert.ok(s.gear>=3);assert.ok(s.rpm>=900&&s.rpm<=7400);step(s,{brake:1},3);assert.ok(s.speed<1);});
+test('manual gearbox holds its gear; shift cuts torque and completes',()=>{const s=createState();s.manual=true;step(s,{throttle:1},8);assert.equal(s.gear,1);assert.ok(shift(s,2));assert.equal(s.gear,2);assert.ok(s.shiftRemaining>0);assert.equal(shift(s,3),false);step(s,{throttle:1},.6);assert.equal(s.shiftRemaining,0);assert.equal(s.gear,2);});
+test('right steering turns right and creates lateral slip',()=>{const s=createState();step(s,{throttle:1},3);step(s,{throttle:1,steer:1},.5);assert.ok(s.yaw<0);assert.ok(s.x>0);assert.ok(Math.abs(s.side)>.5);});
+test('off-road driving and handbrake reduce speed',()=>{const road=createState(),dirt=createState();step(road,{throttle:1},5);step(dirt,{throttle:1},5,12);assert.ok(dirt.speed<road.speed*.6);const previous=road.speed;step(road,{handbrake:true},1);assert.ok(road.speed<previous*.5);});
+test('braking at rest allows controlled reverse',()=>{const s=createState();step(s,{brake:1},3);assert.ok(s.speed<0&&s.speed>=-7);assert.equal(s.gear,1);assert.ok(Number.isFinite(s.rpm));});
+test('gear selection is bounded',()=>{const s=createState();assert.equal(shift(s,0),false);assert.equal(s.gear,1);shift(s,99);assert.equal(s.gear,6);});

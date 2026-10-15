@@ -1,0 +1,59 @@
+{
+  "name": "rally-horizon",
+  "version": "2.0.0",
+  "description": "Rallye 3D : cam\u00e9ras poursuite, capot et cockpit, conduite et audio dynamiques",
+  "author": "REDCATUSER",
+  "license": "MIT",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win --x64 --publish never",
+    "build": "esbuild app/game.js --bundle --minify --legal-comments=eof --outfile=src/game.js && node scripts/standalone.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.28.2"
+  },
+  "build": {
+    "appId": "fr.redcatuser.rallyhorizon",
+    "productName": "Rally Horizon",
+    "files": [
+      "main.cjs",
+      "src/**/*",
+      "THIRD_PARTY_NOTICES.txt"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "Rally-Horizon-3D-Windows.exe",
+      "useZip": true
+    },
+    "compression": "normal",
+    "nsis": {
+      "artifactName": "Rally-Horizon-3D-Installation.exe",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "Rally Horizon 3D",
+      "useZip": true,
+      "differentialPackage": false,
+      "script": "build/installer.nsi",
+      "installerLanguages": [
+        "fr_FR"
+      ]
+    },
+    "afterPack": "scripts/installer.cjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "type": "module"
+}

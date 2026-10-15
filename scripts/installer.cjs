@@ -1,0 +1,5 @@
+// Build a precise uninstall manifest: preserve files added by the user.
+const fs=require('node:fs/promises'),path=require('node:path');
+async function generate(appOutDir){const files=[],dirs=[];async function walk(dir,rel=''){for(const e of await fs.readdir(dir,{withFileTypes:true})){const r=path.join(rel,e.name);if(e.isDirectory()){dirs.push(r);await walk(path.join(dir,e.name),r)}else if(e.isFile())files.push(r);else throw Error('Unsupported entry '+r)}}await walk(appOutDir);const escape=s=>s.replace(/\$/g,'$$').replace(/"/g,'$\\"');const win=s=>escape(s.split(path.sep).join('\\'));const out=path.resolve(__dirname,'../build/app-files.nsh');const content=['!macro InstallRallyFiles',`File /r "${escape(appOutDir)}/*"`,'!macroend','!macro UninstallRallyFiles',...files.map(f=>`Delete "$INSTDIR\\${win(f)}"`),...dirs.sort((a,b)=>b.length-a.length).map(d=>`RMDir "$INSTDIR\\${win(d)}"`),'!macroend',''].join('\n');await fs.writeFile(out,content)}
+module.exports=async context=>generate(context.appOutDir);
+if(require.main===module)generate(path.resolve(process.argv[2]||'dist/win-unpacked')).catch(e=>{console.error(e);process.exit(1)});
