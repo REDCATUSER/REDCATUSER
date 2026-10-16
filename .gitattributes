@@ -1,0 +1,2 @@
+# Preserve the original licensed model sources, including upstream CRLF and spacing.
+src/models/source/** -text whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab,cr-at-eol

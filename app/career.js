@@ -2,14 +2,14 @@ import {STAGES,CARS,CHAMPIONSHIPS} from './content.js';
 import {normalizeSettings} from './settings.js';
 import {medalFor} from './performance.js';
 const KEY='rally-horizon-career-v3';
-const DEFAULT_TUNING={color:'#e74e35',tires:'snow',suspension:'balanced',gearing:'balanced'};
+const DEFAULT_TUNING={color:'#2869bc',tires:'snow',suspension:'balanced',gearing:'balanced'};
 const DRIVERS=[['dupont','L. Dupont'],['berg','E. Berg'],['santos','M. Santos'],['ionescu','A. Ionescu'],['carter','J. Carter'],['nakamura','Y. Nakamura']];
 const finiteTime=value=>typeof value==='number'&&Number.isFinite(value)&&value>0&&value<86400;
 const ids=(list,key='id')=>list.map(x=>x[key]);
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const clone=value=>JSON.parse(JSON.stringify(value));
 const hash=text=>{let h=2166136261;for(const c of text){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return(h>>>0)/4294967296;};
-function defaults(){return{version:3,selectedCar:'club',unlockedCars:['club'],unlockedChampionships:['alps'],completedChampionships:[],tuning:{...DEFAULT_TUNING},settings:normalizeSettings(),records:{},sectors:{},active:null};}
+function defaults(){return{version:3,courseVersion:6,legacyRecords:{},selectedCar:'club',unlockedCars:['club'],unlockedChampionships:['alps'],completedChampionships:[],tuning:{...DEFAULT_TUNING},settings:normalizeSettings(),records:{},sectors:{},active:null};}
 function tuningValid(value){const out={...DEFAULT_TUNING};if(!value||typeof value!=='object')return out;if(/^#[\da-f]{6}$/i.test(value.color))out.color=value.color;if(['road','gravel','snow','sand'].includes(value.tires))out.tires=value.tires;if(['soft','balanced','firm'].includes(value.suspension))out.suspension=value.suspension;if(['short','balanced','long'].includes(value.gearing))out.gearing=value.gearing;return out;}
 const settingsValid=normalizeSettings;
 function validate(input){const data=defaults();if(!input||typeof input!=='object')return data;
@@ -24,6 +24,9 @@ function validate(input){const data=defaults();if(!input||typeof input!=='object
   if(c&&data.unlockedChampionships.includes(c.id)&&Number.isInteger(a.stageIndex)&&a.stageIndex>=0&&a.stageIndex<c.stageIds.length&&Array.isArray(a.playerTimes)&&a.playerTimes.every(finiteTime)&&a.playerTimes.length===(a.stageComplete?a.stageIndex+1:a.stageIndex)){
     data.active={championshipId:c.id,stageIndex:a.stageIndex,playerTimes:[...a.playerTimes],stageComplete:!!a.stageComplete,finished:!!a.stageComplete&&a.stageIndex===c.stageIds.length-1,difficulty:['casual','club','pro'].includes(a.difficulty)?a.difficulty:'club'};
   }
+  const legacy=input.courseVersion===6?input.legacyRecords:input.records;
+  if(legacy&&typeof legacy==='object')for(const stage of STAGES)if(finiteTime(legacy[stage.id]))data.legacyRecords[stage.id]=legacy[stage.id];
+  if(input.courseVersion!==6){data.records={};data.sectors={};data.active=null;}
   return data;
 }
 export class Career{

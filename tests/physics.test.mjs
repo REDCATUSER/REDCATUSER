@@ -6,8 +6,8 @@ test('driven axle loading distinguishes FWD, RWD and AWD under full acceleration
  const fwd=createState(),rwd=createState(),awd=createState();for(let i=0;i<480;i++)for(const [s,driveType]of [[fwd,'fwd'],[rwd,'rwd'],[awd,'awd']])integrate(s,{throttle:1},1/120,{surface:'asphalt',car:{mass:1100,power:300,driveType}});
  assert.ok(awd.speed>fwd.speed+2);assert.ok(rwd.speed>fwd.speed);
 });
-test('mechanical damage reduces power progressively without disabling the car',()=>{
- const clean=createState(),damaged=createState();for(let i=0;i<1800;i++){integrate(clean,{throttle:1},1/120,{surface:'asphalt',car:{power:110},damage:0});integrate(damaged,{throttle:1},1/120,{surface:'asphalt',car:{power:110},damage:1})}assert.ok(clean.speed>damaged.speed+.5);assert.ok(damaged.speed>20);
+test('mechanical damage reduces power before the critical retirement threshold',()=>{
+ const clean=createState(),damaged=createState();for(let i=0;i<1800;i++){integrate(clean,{throttle:1},1/120,{surface:'asphalt',car:{power:110},damage:0});integrate(damaged,{throttle:1},1/120,{surface:'asphalt',car:{power:110},damage:.7})}assert.ok(clean.speed>damaged.speed+2);assert.ok(damaged.speed>15);
 });
 
 const drive = (state, input, seconds, context = { surface: 'asphalt' }, hz = 120) => {
@@ -190,3 +190,5 @@ test('reset clears momentum while preserving placement and manual selection', ()
   assert.equal(s.manual, true);
   assert.deepEqual([s.speed, s.side, s.yawRate, s.vx, s.vz, s.wheelSlip], [0, 0, 0, 0, 0, 0]);
 });
+
+test('the Alpine recovers from a brief full steering input without snapping into a spin',async()=>{const {CARS}=await import('../app/content.js');for(const surface of ['asphalt','snow','sand','gravel']){const s=rolling(22);s.gear=3;const context={surface,car:CARS.find(c=>c.id==='alpine'),tuning:{tires:surface==='snow'?'snow':surface==='sand'?'sand':'gravel'},assist:'sport'};for(let i=0;i<240;i++)integrate(s,{throttle:.35,steer:i<54?1:0},1/120,context);assert.ok(Math.abs(s.yaw)<.65,`${surface}: unexpected spin`);assert.ok(Math.abs(s.yawRate)<.08,`${surface}: unstable yaw after release`);assert.ok(s.speed>15)}});

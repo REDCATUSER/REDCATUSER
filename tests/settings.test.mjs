@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {normalizeSettings,normalizeBindings,held,matches,DEFAULT_BINDINGS} from '../app/settings.js';
 import {createCareer,CAREER_STORAGE_KEY} from '../app/career.js';
 
-test('older career saves gain settings without losing records or championship progress',()=>{
+test('older saves retain settings and archive the times from the previous courses',()=>{
  const old={settings:{volume:43,manual:true,quality:'high'},records:{'alps-1':172},active:{championshipId:'alps',stageIndex:1,playerTimes:[172],stageComplete:false}};
  const storage={getItem:key=>key===CAREER_STORAGE_KEY?JSON.stringify(old):null,setItem(){}};
  const loaded=createCareer(storage).data;
  assert.equal(loaded.settings.volume,43);assert.equal(loaded.settings.manual,true);assert.equal(loaded.settings.engineVolume,100);
- assert.deepEqual(loaded.records,old.records);assert.deepEqual(loaded.active.playerTimes,[172]);assert.equal(loaded.active.stageIndex,1);
+ assert.deepEqual(loaded.legacyRecords,old.records);assert.deepEqual(loaded.records,{});assert.equal(loaded.active,null);
 });
 test('render, language, mixes and remapped controls survive a save and reload',()=>{
  let saved;const storage={getItem:()=>saved,setItem:(k,v)=>saved=v};const career=createCareer(storage);

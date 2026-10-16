@@ -3,7 +3,7 @@ export const MEDAL_LABELS={none:'À CONQUÉRIR',bronze:'BRONZE',silver:'ARGENT',
 export function medalTargets(stage){return{gold:stage.parTime*.94,silver:stage.parTime*1.07,bronze:stage.parTime*1.25}}
 export function medalFor(stage,time){if(!Number.isFinite(time)||time<=0)return'none';const targets=medalTargets(stage);return ['gold','silver','bronze'].find(m=>time<=targets[m])||'none'}
 export function applyImpact(damage,speed){return Math.min(1,Math.max(0,damage)+(Math.max(0,Math.abs(speed)-3)/55)**1.35*.22)}
-export function ghostKey(stage,car,tuning,settings={}){return [5,stage.id,car.id,tuning.tires,tuning.suspension,tuning.gearing,settings.assist||'sport',settings.damage===false?'no-damage':'damage',settings.manual?'manual':'auto'].join('/')}
+export function ghostKey(stage,car,tuning,settings={}){return [6,stage.id,car.id,tuning.tires,tuning.suspension,tuning.gearing,settings.assist||'sport',settings.damage===false?'no-damage':'damage',settings.manual?'manual':'auto'].join('/')}
 export class RunRecorder{
  constructor(){this.frames=[];this.valid=true;this.next=0}
  invalidate(){this.valid=false}

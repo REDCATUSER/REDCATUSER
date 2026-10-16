@@ -1,15 +1,17 @@
 import * as T from 'three';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+import {SCENERY} from '../src/scenery/scenery-data.js';
 import { STAGES } from './content.js';
 
 export const stages = STAGES;
 export const height = (x, z) => Math.sin(x * .008) * 1.4 + Math.cos(z * .006) * 2;
 const palettes = {
-  alps: { sky: 0xc9d7e2, ground: 0xe5eef1, road: 0xa6bac4, foliage: 0x54766b, rock: 0x75838d, width: 5.3, relief: .48, rise: 150 },
-  dakar: { sky: 0xd8d9bd, ground: 0xd4b47c, road: 0xd9bd87, foliage: 0x65774b, rock: 0x9f8061, width: 7.5, relief: .12, rise: 26 },
-  france: { sky: 0xb9d5e2, ground: 0x6d8751, road: 0x686b68, foliage: 0x3d6537, rock: 0x929182, width: 5.3, relief: .14, rise: 48 },
-  monte: { sky: 0xbed6e4, ground: 0x79916d, road: 0x565c61, foliage: 0x3c6750, rock: 0xa7a89b, width: 5.3, relief: .39, rise: 115 },
-  usa: { sky: 0xb3cedb, ground: 0x9b805e, road: 0xac987c, foliage: 0x355e44, rock: 0xa57d62, width: 5.8, relief: .37, rise: 95 },
-  romania: { sky: 0xb7c7c7, ground: 0x778451, road: 0x666963, foliage: 0x3f643d, rock: 0x858775, width: 5.1, relief: .3, rise: 88 },
+  alps: { sky: 0xc9d7e2, ground: 0xe5eef1, road: 0xa6bac4, foliage: 0x54766b, rock: 0x75838d, width: 3.65, relief: .38, rise: 135 },
+  dakar: { sky: 0xbfd4e0, ground: 0xd4b47c, road: 0xd9bd87, foliage: 0x65774b, rock: 0x9f8061, width: 5.1, relief: .12, rise: 26 },
+  france: { sky: 0x9fbfd6, ground: 0x698345, road: 0x686b68, foliage: 0x3d6537, rock: 0x929182, width: 3.5, relief: .14, rise: 48 },
+  monte: { sky: 0xbed6e4, ground: 0x79916d, road: 0x565c61, foliage: 0x3c6750, rock: 0xa7a89b, width: 3.4, relief: .30, rise: 105 },
+  usa: { sky: 0x95b9d5, ground: 0x73844c, road: 0xac987c, foliage: 0x355e44, rock: 0xa57d62, width: 4.0, relief: .24, rise: 80 },
+  romania: { sky: 0xb7c7c7, ground: 0x778451, road: 0x666963, foliage: 0x3f643d, rock: 0x858775, width: 3.3, relief: .24, rise: 78 },
 };
 function randomSource(seed) { return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }; }
 function material(color, extra = {}) { return new T.MeshStandardMaterial({ color, roughness: .92, ...extra }); }
@@ -46,29 +48,36 @@ function canvasTexture(kind, color, seed, size=512) {
     for (let y = 0; y < 256; y += 8) { ctx.fillStyle = 'rgba(65,66,59,.1)'; ctx.fillRect(x - 7, y, 14, 2); }
   }
   const map = new T.CanvasTexture(canvas); map.wrapS = map.wrapT = T.RepeatWrapping;
-  map.colorSpace = T.SRGBColorSpace; map.anisotropy = 8; return map;
+  map.colorSpace = T.SRGBColorSpace; map.anisotropy = 8;
+  if(typeof Image!=='undefined'&&['grass','ground','gravel','asphalt','broken','snow','sand'].includes(kind)){const image=new Image();image.onload=()=>{ctx.globalAlpha=kind==='snow'||kind==='ground'?.25:.58;ctx.drawImage(image,0,0,256,256);ctx.globalAlpha=1;map.needsUpdate=true};image.src=SCENERY.ground}
+  return map;
 }
 
-// Monotonic valley coordinates prevent crossings and keep start/finish far apart.
+// Authored bend sequences: short transitions into hairpins, linked S bends,
+// and acceleration zones. Z stays monotonic, so separate road sections cannot
+// cross and the height-field/collision lookup remains deterministic.
 function makeRoute(stage, palette) {
-  const variant = Number(stage.variant) || 0, points = [];
-  const winding = stage.region === 'romania' ? 1.95 : stage.region === 'alps' || stage.region === 'monte' ? 1.7 : stage.region === 'dakar' ? .82 : 1.35;
-  for (let i = 0; i <= 34; i++) {
-    const bend = (Math.sin(i * .53 + variant * .7) * 85 + Math.sin(i * .96 + variant) * 34) * winding;
-    points.push(new T.Vector3(bend, 0, -i * 88));
+  const variant = Number(stage.variant) || 0, points = [new T.Vector3(0,2,0)];
+  const technical=['alps','monte','romania'].includes(stage.region),desert=stage.region==='dakar';
+  const layouts=[
+   [0,.3,-.55,.85,-.8,1.18,-1.18,-.35,.7,-.65,1.21,-1.21,.2,.94,-.95,.4,-.7,.8,-.3,0],
+   [0,-.4,.65,-1.16,1.16,.3,-.8,.85,-.4,1.2,-1.2,-.2,.65,-.8,.9,-.6,.4,-.7,.3,0],
+   [0,.55,-.7,.3,-.9,.95,-.3,1.22,-1.22,-.5,.7,-.85,1.18,-1.18,.2,.8,-.7,.55,-.3,0]
+  ], headings=layouts[variant%3].map(v=>v*(technical?1:desert?.64:.83));
+  const target=Math.max(2500,Math.min(4200,Number(stage.length)||3400)),rand=randomSource(7919+variant*511+stage.region.length*137);
+  const runs=headings.map((_,i)=>i===0?85:105+rand()*100),factor=target/runs.reduce((a,b)=>a+b,0);let x=0,z=0,travel=0;
+  for(let i=0;i<headings.length;i++){
+   const run=runs[i]*factor,transition=desert?Math.min(run*.7,85):Math.min(run*.45,technical?42:58);
+   for(let d=0;d<run;d+=4){const step=Math.min(4,run-d),u=T.MathUtils.clamp(d/transition,0,1),blend=u*u*(3-2*u),yaw=T.MathUtils.lerp(headings[Math.max(0,i-1)],headings[i],blend);x+=Math.sin(yaw)*step;z-=Math.cos(yaw)*step;travel+=step;points.push(new T.Vector3(x,0,z))}
   }
-  const firstX = points[0].x; for (const p of points) p.x -= firstX;
   const preview = new T.CatmullRomCurve3(points, false, 'centripetal');
-  const target = Math.max(2500, Math.min(4200, Number(stage.length) || 3400));
-  const factor = target / preview.getLength();
-  for (const p of points) { p.x *= factor; p.z *= factor; }
-  const endZ = points.at(-1).z;
-  for (const p of points) {
-    const t = p.z / endZ;
-    p.y = palette.rise * (variant === 1 ? 1 - t : t) + Math.sin(t * Math.PI * 5 + variant * .4) * (stage.region === 'dakar' ? 3 : 6) + 2;
+  const scale = target / preview.getLength();
+  for (let i=0;i<points.length;i++) {
+    const p=points[i],t=i/(points.length-1),rise=T.MathUtils.smoothstep(t,.025,.975);p.x*=scale;p.z*=scale;
+    p.y = palette.rise * (variant === 1 ? 1-rise : rise) + Math.sin(rise * Math.PI * 4 + variant*.4) * (desert ? 2 : 4) + 2;
   }
-  const curve = new T.CatmullRomCurve3(points, false, 'centripetal'); curve.arcLengthDivisions = 3000;
-  const samples = curve.getSpacedPoints(Math.ceil(curve.getLength() / 3)), distances = [0];
+  const curve = new T.CatmullRomCurve3(points, false, 'centripetal'); curve.arcLengthDivisions = Math.max(6000,points.length*18);
+  const samples = curve.getSpacedPoints(Math.ceil(curve.getLength() / 2)), distances = [0];
   for (let i = 1; i < samples.length; i++) distances.push(distances[i - 1] + samples[i].distanceTo(samples[i - 1]));
   function atZ(z) {
     let lo = 0, hi = samples.length - 1;
@@ -176,7 +185,7 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
       for (const offset of offsets) {
         const x = p.x - dz / norm * offset, z = p.z + dx / norm * offset;
         vertices.push(x, heightAt(x, z) + (isRoad ? .055 : -.12), z);
-        uvs.push(isRoad ? (offset / halfWidth + 1) * .5 : x / 95, isRoad ? distances[i] / 22 : z / 95);
+        uvs.push(isRoad ? (offset / halfWidth + 1) * .5 : x / 14, isRoad ? distances[i] / 9 : z / 14);
         const c = base.clone().multiplyScalar(isRoad ? .96 + rand() * .08 : .83 + rand() * .25); colors.push(c.r, c.g, c.b);
       }
       if (n < path.length - 1) for (let j = 0; j < offsets.length - 1; j++) {
@@ -190,34 +199,49 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
     mesh.receiveShadow = true; mesh.name = isRoad ? 'road' : 'terrain'; root.add(mesh);
   }
   const groundOffsets = [...new Set([-480, -220, -100, -45, -23, -12, -halfWidth - 2, -halfWidth, 0, halfWidth, halfWidth + 2, 12, 23, 45, 100, 220, 480])].sort((a,b)=>a-b);
-  ribbon(groundOffsets, 3, false);
+  // A regular terrain grid cannot fold over itself on the inside of a hairpin.
+  {
+   const xs=samples.map(p=>p.x),minX=Math.floor((Math.min(...xs)-520)/24)*24,maxX=Math.max(...xs)+520,minZ=samples.at(-1).z-300,maxZ=300,nx=Math.ceil((maxX-minX)/24),nz=Math.ceil((maxZ-minZ)/24),vertices=[],uvs=[],colors=[],indices=[],base=new T.Color(palette.ground);
+   for(let j=0;j<=nz;j++)for(let i=0;i<=nx;i++){const x=minX+i/nx*(maxX-minX),z=minZ+j/nz*(maxZ-minZ),near=nearest(x,z);vertices.push(x,heightAt(x,z)-(near.dist<halfWidth+32?2.6:.20),z);uvs.push(x/14,z/14);const c=base.clone().multiplyScalar(.89+rand()*.20);colors.push(c.r,c.g,c.b);if(i&&j){const k=j*(nx+1)+i;indices.push(k,k-1,k-nx-2,k,k-nx-2,k-nx-1)}}
+   const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));geo.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));geo.setAttribute('color',new T.Float32BufferAttribute(colors,3));geo.setIndex(indices);geo.computeVertexNormals();
+   const ground=new T.Mesh(geo,texturedMaterial(0xffffff,stage.region==='dakar'?'sandground':stage.region==='alps'?'ground':'grass',index+3,{vertexColors:true,side:T.DoubleSide}));ground.name='terrain';ground.receiveShadow=true;root.add(ground);
+  }
+  ribbon([-halfWidth-7,-halfWidth-2,-halfWidth,0,halfWidth,halfWidth+2,halfWidth+7],1,false);root.children.at(-1).name='road-verge';
   ribbon([-halfWidth, -halfWidth * .5, 0, halfWidth * .5, halfWidth], 1, true);
 
-  const dummy = new T.Object3D();
+  const dummy = new T.Object3D(),routeMinX=Math.min(...samples.map(p=>p.x)),routeMaxX=Math.max(...samples.map(p=>p.x));
   function instance(mesh, i, x, y, z, sx = 1, sy = 1, sz = 1, rotation = 0) {
     dummy.position.set(x, y, z); dummy.scale.set(sx, sy, sz); dummy.rotation.set(0, rotation, 0); dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix);
   }
   function roadsidePoint(i, side, offset) {
     i = T.MathUtils.clamp(i, 0, samples.length - 2);
     const p = samples[i], b = samples[i + 1], dx = b.x - p.x, dz = b.z - p.z, n = Math.hypot(dx, dz);
-    return { x: p.x - dz / n * offset * side, z: p.z + dx / n * offset * side, yaw: Math.atan2(-dx, -dz), distance: distances[i] };
+    const result={ x: p.x - dz / n * offset * side, z: p.z + dx / n * offset * side, yaw: Math.atan2(-dx, -dz), distance: distances[i] };
+    if(offset>halfWidth+2){const clearance=halfWidth+Math.min(9,Math.max(1.7,offset-halfWidth-1));for(let attempt=0;attempt<5&&nearest(result.x,result.z).dist<clearance;attempt++){const candidate=attempt===4?halfWidth+10:offset*(.72-attempt*.10);result.x=p.x-dz/n*candidate*side;result.z=p.z+dx/n*candidate*side}if(nearest(result.x,result.z).dist<clearance){result.x=(side>0?routeMaxX+1:routeMinX-1)+side*(offset+12);result.z=p.z}}
+    return result;
   }
 
   // Branches and five irregular foliage clusters produce volumetric, non-conical trees.
-  const treeCount = stage.region === 'dakar' ? 65 : 460;
-  const trunks = new T.InstancedMesh(new T.CylinderGeometry(.2, .34, 1, 10), texturedMaterial(0x695644,'bark',31), treeCount);
-  const leaves = new T.InstancedMesh(new T.IcosahedronGeometry(1, 2), material(0xffffff), treeCount * 5);
+  const treeCount = stage.region === 'dakar' ? 65 : 620;
+  const trunks = new T.InstancedMesh(new T.CylinderGeometry(.13, .23, 1, 7), texturedMaterial(0x695644,'bark',31), treeCount);
+  const canopyPlanes=Array.from({length:3},(_,i)=>new T.PlaneGeometry(2,2).rotateY(i*Math.PI/3)),canopyGeometry=mergeGeometries(canopyPlanes);canopyPlanes.forEach(g=>g.dispose());
+  let foliageMap=null;
+  if(typeof document!=='undefined'){const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d'),r=randomSource(8191),conifer=stage.region==='alps'||stage.region==='usa';
+   if(conifer){for(let j=0;j<20;j++){const y=50+j*20,spread=45+j*8;for(const side of [-1,1]){g.strokeStyle='#c6d0be';g.lineWidth=3;g.beginPath();g.moveTo(256,y-18);g.lineTo(256+side*spread,y+32);g.stroke();for(let k=0;k<35;k++){const u=k/35,x=256+side*spread*u,py=y-18+u*50;g.strokeStyle=k%3?'#d8dfd0':'#a5b19b';g.lineWidth=2;g.beginPath();g.moveTo(x,py);g.lineTo(x+side*(8+r()*14),py-8-r()*16);g.stroke()}}}}
+   else for(let i=0;i<450;i++){const a=r()*Math.PI*2,d=Math.sqrt(r())*205,x=256+Math.cos(a)*d,y=256+Math.sin(a)*d*.8;g.fillStyle=i%3?'#d4dccb':'#a8b99d';g.beginPath();g.ellipse(x,y,8+r()*21,4+r()*12,r()*6,0,Math.PI*2);g.fill()}
+   foliageMap=new T.CanvasTexture(c);foliageMap.colorSpace=T.SRGBColorSpace;
+  }
+  foliageMap?.dispose();foliageMap=typeof Image!=='undefined'?new T.TextureLoader().load(stage.region==='alps'||stage.region==='usa'?SCENERY.pine:SCENERY.broadleaf):null;if(foliageMap)foliageMap.colorSpace=T.SRGBColorSpace;
+  const leaves = new T.InstancedMesh(canopyGeometry, material(0xffffff,{map:foliageMap,alphaTest:.42,side:T.DoubleSide}), treeCount);
   const branches = new T.InstancedMesh(new T.CylinderGeometry(.06, .13, 1, 5), material(0x6b5944), treeCount * 3);
   trunks.name = 'tree-trunks'; leaves.name = 'tree-canopies'; leaves.castShadow = true; trunks.castShadow = true;
   for (let i = 0; i < treeCount; i++) {
-    const p = roadsidePoint(8 + Math.floor(rand() * (samples.length - 17)), rand() < .5 ? -1 : 1, 15 + rand() * 220);
-    const y = heightAt(p.x, p.z), scale = .75 + rand() * 1.15, desert = stage.region === 'dakar', tall = (desert ? 4.2 : 7.2) * scale;
+    const p = roadsidePoint(8 + Math.floor(rand() * (samples.length - 17)), rand() < .5 ? -1 : 1, halfWidth+4+rand()**2*150);
+    const y = heightAt(p.x, p.z), scale = .75 + rand() * 1.15, desert = stage.region === 'dakar', tall = (desert ? 4.2 : 10.4) * scale;
     instance(trunks, i, p.x, y + tall * .43, p.z, scale, tall * .86, scale);
-    for (let j = 0; j < 5; j++) {
-      const conifer=stage.region==='alps'||stage.region==='usa',a = j * 2.4 + rand(), spread = conifer?.16*scale:j === 4 ? .2 : 1.7 * scale, wide = (conifer?2.2-j*.36:desert ? 2.4 : 2) * scale;
-      instance(leaves, i * 5 + j, p.x + Math.cos(a) * spread, y + tall * (conifer?.39+j*.125:.56+j*.07), p.z + Math.sin(a) * spread, wide, (conifer?.85:desert ? .75 : 2.15) * scale, wide * .85, a);
-      leaves.setColorAt(i * 5 + j, new T.Color(palette.foliage).multiplyScalar(.82 + rand() * .35));
-    }
+    const conifer=stage.region==='alps'||stage.region==='usa',wide=(conifer?2.65:desert?2.8:3.7)*scale;
+    instance(leaves,i,p.x,y+tall*.5,p.z,wide,tall*.5,wide,rand()*Math.PI);
+    leaves.setColorAt(i,new T.Color(conifer?0xa5c2aa:0xd0dfc3).multiplyScalar(.85+rand()*.25));
     for (let j = 0; j < 3; j++) {
       const angle = j * 2.094 + i, radius = 1.2 * scale;
       dummy.position.set(p.x + Math.cos(angle) * radius * .5, y + tall * .58, p.z + Math.sin(angle) * radius * .5);
@@ -226,14 +250,6 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
     obstacles.push({ x: p.x, z: p.z, r: .7 * scale });
   }
   root.add(trunks, leaves, branches);
-  if (stage.region === 'alps') {
-    const caps = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), material(0xf1f5f3), treeCount * 2);
-    for (let i = 0; i < treeCount; i++) for (let j = 0; j < 2; j++) {
-      leaves.getMatrixAt(i * 5 + j + 2, dummy.matrix); dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
-      dummy.position.y += dummy.scale.y * .7; dummy.scale.y *= .23; dummy.updateMatrix(); caps.setMatrixAt(i * 2 + j, dummy.matrix);
-    }
-    root.add(caps);
-  }
 
   const rockCount = stage.region === 'dakar' ? 100 : 170;
   const rocks = new T.InstancedMesh(new T.DodecahedronGeometry(1, 1), texturedMaterial(palette.rock,'rock',63), rockCount); rocks.castShadow = true;
@@ -244,11 +260,12 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
   }
   root.add(rocks);
   if (stage.region !== 'alps' && stage.region !== 'dakar') {
-    const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute([-.45,0,0, .08,.9,0, .22,0,0, 0,0,-.4, 0,.75,.05, 0,0,.3, -.35,0,-.2, .1,.6,.1, .3,0,.3], 3)); geo.computeVertexNormals();
-    const grass = new T.InstancedMesh(geo, material(stage.region === 'usa' ? 0x989354 : 0x698348, { side: T.DoubleSide }), 2200);
+    const geo=canopyGeometry.clone().translate(0,1,0);let grassMap=null;
+    if(typeof document!=='undefined'){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');g.strokeStyle='#e4ebce';for(let i=0;i<55;i++){g.lineWidth=1+rand()*2;const x=rand()*128;g.beginPath();g.moveTo(x,128);g.quadraticCurveTo(x+(rand()-.5)*25,70,x+(rand()-.5)*40,15+rand()*65);g.stroke()}grassMap=new T.CanvasTexture(c);grassMap.colorSpace=T.SRGBColorSpace;}
+    const grass = new T.InstancedMesh(geo, material(0x70864b,{map:grassMap,alphaTest:.4,side:T.DoubleSide}), 2200);
     for (let i = 0; i < grass.count; i++) {
       const p = roadsidePoint(Math.floor(rand() * (samples.length - 1)), rand() < .5 ? -1 : 1, halfWidth + .8 + rand() * 34), s = .45 + rand() * .9;
-      instance(grass, i, p.x, heightAt(p.x, p.z), p.z, s, s, s, rand() * 6.28);
+      instance(grass, i, p.x, heightAt(p.x, p.z), p.z, s*.55, s*.25, s*.55, rand() * 6.28);
     }
     root.add(grass);
   }
@@ -261,7 +278,7 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
     const side = run % 2 ? -1 : 1, p = roadsidePoint(k, side, halfWidth + 1.6), q = roadsidePoint(Math.min(k + 4, samples.length - 2), side, halfWidth + 1.6);
     const len = Math.hypot(q.x - p.x, q.z - p.z); railSpecs.push({ p, q, len });
     const steps = Math.ceil(len / 2.2);
-    for (let n = 0; n <= steps; n++) barriers.push({ x: T.MathUtils.lerp(p.x, q.x, n / steps), z: T.MathUtils.lerp(p.z, q.z, n / steps), r: .34, distance: T.MathUtils.lerp(p.distance, q.distance, n / steps) });
+    barriers.push({x:(p.x+q.x)/2,z:(p.z+q.z)/2,a:p,b:q,r:.12,kind:'barrier',distance:(p.distance+q.distance)/2});
   }
   const rails = new T.InstancedMesh(new T.BoxGeometry(1, .34, .16), material(stage.region === 'france' ? 0xaaa89a : 0xb8bec1, { metalness: .4, roughness: .55 }), railSpecs.length);
   const railPosts = new T.InstancedMesh(new T.BoxGeometry(.16, 1.1, .16), material(0x898d8b), railSpecs.length);
@@ -330,25 +347,40 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
     const banner=new T.Mesh(new T.BoxGeometry(halfWidth*2+.9,.55,.15),m);banner.position.y=5.2;group.add(banner);root.add(group);
     gates.push({group,material:m,point:p.clone(),yaw,distance:distances[sampleIndex],index:sampleIndex});
   }
-  const notes=[];let lastNote=-100;
+  const surfaceNote=stage.surface==='snow'?'snow':stage.surface==='sand'?'sand':stage.surface==='broken'?'rough':null;
+  const notes=surfaceNote?[{distance:15,text:stage.surfaceLabel,code:surfaceNote}]:[];let lastNote=-100;
   // Small spectator areas at selected sectors bring the rally service crews
   // to life. People remain behind the barriers and do not obstruct the road.
-  const peopleCount=54,people=new T.InstancedMesh(new T.CylinderGeometry(.21,.25,.75,8),material(0xffffff),peopleCount),heads=new T.InstancedMesh(new T.SphereGeometry(.16,10,8),material(0xc79d79),peopleCount),legs=new T.InstancedMesh(new T.CylinderGeometry(.095,.09,.65,7),material(0x293b40),peopleCount*2);
+  const peopleCount=90,people=new T.InstancedMesh(new T.CylinderGeometry(.21,.25,.75,8),material(0xffffff),peopleCount),heads=new T.InstancedMesh(new T.SphereGeometry(.16,10,8),material(0xc79d79),peopleCount),legs=new T.InstancedMesh(new T.CylinderGeometry(.095,.09,.65,7),material(0x293b40),peopleCount*2),arms=new T.InstancedMesh(new T.CylinderGeometry(.065,.065,.55,6),material(0x596677),peopleCount*2),cameras=new T.InstancedMesh(new T.BoxGeometry(.25,.15,.14),material(0x20262b),9),lenses=new T.InstancedMesh(new T.CylinderGeometry(.045,.045,.10,8),material(0x637e8a,{metalness:.3}),9);
   people.name='spectator-jackets';
   for(let i=0;i<peopleCount;i++){
-    const gate=2+Math.floor(i/18)*2,baseIndex=worldIndex(gate),p=roadsidePoint(baseIndex+(i%6)*2,1,halfWidth+4+(i%3)*1.1),y=heightAt(p.x,p.z);
+    const gate=2+Math.floor(Math.max(0,i-36)/18)*2,baseIndex=i<36?5+Math.floor(i/2)*2:worldIndex(gate),side=i<36?(i%2?1:-1):1,p=roadsidePoint(baseIndex+(i<36?0:i%6*2),side,halfWidth+2.8+(i%3)*.6),y=heightAt(p.x,p.z);
     instance(people,i,p.x,y+1.08,p.z,1,1,1,p.yaw);people.setColorAt(i,new T.Color([0xdc6b3e,0xe1d8b1,0x4d7c91,0x72885e][i%4]));instance(heads,i,p.x,y+1.64,p.z);
     for(const side of [-1,1])instance(legs,i*2+(side>0?1:0),p.x+side*.13,y+.34,p.z,1,1,1,p.yaw);
+    for(const sign of [-1,1]){dummy.position.set(p.x+sign*.24,y+1.20,p.z);dummy.rotation.set(0,p.yaw,sign*.65);dummy.scale.set(1,1,1);dummy.updateMatrix();arms.setMatrixAt(i*2+(sign>0?1:0),dummy.matrix)}
+    if(i<36&&i%4===0){const n=i/4;instance(cameras,n,p.x,y+1.53,p.z,1,1,1,p.yaw+side*Math.PI/2);dummy.position.set(p.x-side*.13,y+1.53,p.z);dummy.rotation.set(0,0,Math.PI/2);dummy.scale.set(1,1,1);dummy.updateMatrix();lenses.setMatrixAt(n,dummy.matrix)}
   }
   function worldIndex(gate){return gates[gate].index}
-  root.add(people,heads,legs);
+  cameras.name='start-photographers';root.add(people,heads,legs,arms,cameras,lenses);
+  const startRig=new T.Group(),startSample=samples[7];startRig.name='start-light-gantry';startRig.position.copy(startSample);startRig.rotation.y=gates[0].yaw;
+  const standMaterial=material(0x1c292d),signalMaterials=[0xe94e39,0xf5bd42,0x6fda62].map(color=>new T.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.02,roughness:.5}));
+  for(const sign of [-1,1]){const post=new T.Mesh(new T.CylinderGeometry(.07,.07,4.3,8),standMaterial);post.position.set(sign*(halfWidth+.6),2.15,0);startRig.add(post)}
+  const beam=new T.Mesh(new T.BoxGeometry(halfWidth*2+1.4,.15,.15),standMaterial);beam.position.y=4.2;startRig.add(beam);
+  const housing=new T.Mesh(new T.BoxGeometry(2.0,.68,.20),standMaterial);housing.position.set(0,3.78,0);startRig.add(housing);
+  signalMaterials.forEach((m,i)=>{const lamp=new T.Mesh(new T.SphereGeometry(.21,12,8),m);lamp.scale.z=.35;lamp.position.set((i-1)*.58,3.8,.14);startRig.add(lamp)});root.add(startRig);
+  function setStartLights(number){const phase=number>=3?0:number>0?1:2;signalMaterials.forEach((m,i)=>{m.emissiveIntensity=i===phase?2.5:.01;m.color.setHex(i===phase?[0xe94e39,0xf5bd42,0x6fda62][i]:0x1c292d)})}
+  setStartLights(3);
+  if(typeof document!=='undefined'){
+    const c=document.createElement('canvas');c.width=512;c.height=128;const g=c.getContext('2d');g.fillStyle='#e8ebda';g.fillRect(0,0,512,128);g.fillStyle='#20332d';g.font='italic 900 56px sans-serif';g.fillText('HORIZON RALLY',20,78);g.fillStyle='#c7e958';g.fillRect(0,110,512,18);const map=new T.CanvasTexture(c);map.colorSpace=T.SRGBColorSpace;const m=new T.MeshStandardMaterial({map,roughness:.95,side:T.DoubleSide});
+    for(let i=0;i<10;i++){const p=roadsidePoint(9+i*4,i%2?-1:1,halfWidth+1.9),board=new T.Mesh(new T.PlaneGeometry(6,1.5),m);board.position.set(p.x,heightAt(p.x,p.z)+.85,p.z);board.rotation.y=p.yaw+(i%2?1:-1)*Math.PI/2;root.add(board)}
+  }
   for(let i=30;i<samples.length-35;i+=8) {
     if(distances[i]>length-200)break;
     if(distances[i]-lastNote<105)continue;
     const a=samples[i-20],b=samples[i],c=samples[i+25];
     let turn=Math.atan2(c.x-b.x,-(c.z-b.z))-Math.atan2(b.x-a.x,-(b.z-a.z));
     while(turn>Math.PI)turn-=Math.PI*2;while(turn<-Math.PI)turn+=Math.PI*2;if(Math.abs(turn)<.13)continue;
-    const number=Math.abs(turn)>.78?2:Math.abs(turn)>.5?3:Math.abs(turn)>.3?4:5,right=turn>0;
+    const number=Math.abs(turn)>1.5?1:Math.abs(turn)>.9?2:Math.abs(turn)>.65?3:Math.abs(turn)>.35?4:5,right=turn>0;
     notes.push({distance:Math.max(0,distances[i]-55),text:`${right?'Droite':'Gauche'} ${number}${stage.surface==='snow'?', glissant':''}`,code:`${right?'right':'left'}${number}`});lastNote=distances[i];
   }
   notes.push({distance:length-110,text:'Arrivée, cent mètres',code:'finish'});
@@ -386,7 +418,7 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
     }
     root.remove(original);original.dispose();
   }
-  return {root,curve,samples,length,gates,nearest,heightAt,surfaceAt,notes,obstacles,barriers,weather,roadWidth:halfWidth*2,update,setTextureQuality,get textureSize(){return TEXTURE_SIZES[textureQuality]||512},
+  return {root,curve,samples,length,gates,nearest,heightAt,surfaceAt,notes,obstacles,barriers,weather,roadWidth:halfWidth*2,update,setStartLights,setTextureQuality,get textureSize(){return TEXTURE_SIZES[textureQuality]||512},
     dispose(){
       scene.remove(root);const geometries=new Set(),materials=new Set(),textures=new Set();
       root.traverse(o=>{if(o.isInstancedMesh)o.dispose();if(o.geometry)geometries.add(o.geometry);if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material]){materials.add(m);for(const value of Object.values(m))if(value?.isTexture)textures.add(value)}});

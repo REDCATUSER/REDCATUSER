@@ -6,8 +6,9 @@ const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallbac
 const surfaces = {
   asphalt: { grip: 1.06, rolling: .017, roughness: .06, wet: .38 },
   gravel: { grip: .77, rolling: .033, roughness: .28, wet: .16 },
-  snow: { grip: .30, rolling: .042, roughness: .20, wet: .13 },
-  sand: { grip: .55, rolling: .079, roughness: .42, wet: .05 },
+  snow: { grip: .36, rolling: .027, roughness: .20, wet: .13 },
+  sand: { grip: .60, rolling: .056, roughness: .42, wet: .05 },
+  grass: {grip:.48,rolling:.062,roughness:.55,wet:.28},
   broken: { grip: .82, rolling: .034, roughness: .80, wet: .30 }
 };
 const tireGrip = {
@@ -68,13 +69,13 @@ function advance(s, input, dt, context) {
   const mass = clamp(finite(car.mass, 1240), 650, 2200);
   const powerValue = finite(car.power, 250);
   const horsepower = clamp(powerValue < 10 ? powerValue * 250 : powerValue, 70, 650);
-  const wheelbase = clamp(finite(car.wheelbase, 2.60), 2.1, 3.3), frontArm = wheelbase * .46, rearArm = wheelbase * .54;
-  const inertia = mass * wheelbase * wheelbase * .24, wheelRadius = .34;
+  const wheelbase = clamp(finite(car.wheelbase, 2.60), 2.1, 3.3), frontShare=finite(car.frontWeight,car.driveType==='rwd'?.46:.57),frontArm = wheelbase * (1-frontShare), rearArm = wheelbase * frontShare;
+  const inertia = mass * wheelbase * wheelbase * .30, wheelRadius = .33;
   const wetness = clamp(finite(context.wetness), 0, 1);
   const roughness = clamp(finite(context.roughness, surface.roughness), 0, 1);
   const slope = clamp(finite(context.slope), -1.35, 1.35), crossSlope=clamp(finite(context.crossSlope),-1.35,1.35);
   s.offroad = Boolean(context.offroad);
-  const grip = surface.grip * tires[surfaceName] * (1 - wetness * surface.wet)
+  const grip = surface.grip * (tires[surfaceName]||.84) * (1 - wetness * surface.wet)
     * (s.offroad ? .68 : 1) * finite(context.legacyGrip, 1);
   const normal = mass * gravity / Math.sqrt(1+Math.tan(slope)**2+Math.tan(crossSlope)**2);
 
@@ -88,13 +89,15 @@ function advance(s, input, dt, context) {
   const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), rx = Math.cos(s.yaw), rz = -Math.sin(s.yaw);
   const forward = s.vx * fx + s.vz * fz, lateral = s.vx * rx + s.vz * rz;
   const speed = Math.abs(forward), omega = -finite(s.yawRate);
-  const steeringAngle = s.steer * .54 / (1 + speed * .23);
+  // Keep a usable turning radius in slow hairpins, without the abrupt full
+  // lock that made the short-wheelbase Alpine snap at road speeds.
+  const steeringAngle = s.steer * .58 / (1 + speed * .13 + speed*speed*.0025);
   const slipDenominator = Math.max(speed, 4);
   const frontSlip = steeringAngle * clamp(forward / 2, -1, 1) - Math.atan2(lateral + omega * frontArm, slipDenominator);
   const rearSlip = -Math.atan2(lateral - omega * rearArm, slipDenominator);
   const suspensionGrip = tuning.suspension === 'soft' ? 1 + roughness * .09 : tuning.suspension === 'firm' ? 1.025 - roughness * .18 : 1;
   const transfer = clamp(finite(s.longitudinalAcceleration) * mass * .47 / wheelbase, -normal * .18, normal * .18);
-  const frontNormal = normal * .54 - transfer, rearNormal = normal * .46 + transfer;
+  const frontNormal = normal * frontShare - transfer, rearNormal = normal * (1-frontShare) + transfer;
   const frontLimit = Math.max(1, frontNormal * grip * suspensionGrip);
   const rearLimit = Math.max(1, rearNormal * grip * suspensionGrip * (s.handbrake ? .28 : 1.04));
   const stiffness = mass / 1240;
@@ -124,7 +127,7 @@ function advance(s, input, dt, context) {
   const topSpeed = (configuredTopSpeed > 100 ? configuredTopSpeed / 3.6 : configuredTopSpeed)
     * (surfaceName === 'sand' ? .86 : surfaceName === 'snow' ? .92 : 1);
   const speedLimiter = clamp((topSpeed - forward) / 4, 0, 1);
-  const health=1-clamp(finite(context.damage),0,1)*.18;
+  const health=clamp(1-clamp(finite(context.damage),0,1)*.55,.25,1);
   const driveDemand = s.throttle * horsepower * health * 1.22 * torqueCurve * ratio * finalDrive * .86 / wheelRadius * shiftCut * revLimiter * speedLimiter;
   s.engineLoad = s.throttle * shiftCut;
   const frictionCircle = Math.sqrt(Math.max(.08, 1 - (lateralForce / Math.max(normal * grip * 1.1, 1)) ** 2));
@@ -137,7 +140,7 @@ function advance(s, input, dt, context) {
   // under power; RWD progressively loosens the rear; AWD distributes the load.
   const powerShare=clamp(longitudinalForce/driveTraction,0,1)*s.throttle;
   if(car.driveType==='fwd')frontForce*=1-powerShare*.18;
-  if(car.driveType==='rwd')rearForce*=1-powerShare*.24;
+  if(car.driveType==='rwd')rearForce*=1-powerShare*.08;
   lateralForce=frontForce+rearForce;
 
   if (s.brake > 0) {
@@ -166,9 +169,11 @@ function advance(s, input, dt, context) {
   const longitudinalAcceleration = longitudinalForce / mass;
   const lateralAcceleration = (lateralForce-normal*Math.tan(crossSlope)) / mass;
   // Rotation follows tire force moments, with extra damping only at parking speed.
-  const stability=context.assist==='comfort'?.72:context.assist==='sport'?.16:0;
-  const correction=!s.handbrake&&speed>4?omega*stability*clamp(Math.abs(lateral)/3,0,1):0;
-  const omegaNext = clamp(omega + ((frontForce * frontArm - rearForce * rearArm) / inertia - omega * (2.4 / (1 + speed * .5))-correction) * dt, -2.5, 2.5);
+  const stability=context.assist==='comfort'?3.2:context.assist==='sport'||!context.assist?1.8:0;
+  const desiredYaw=forward/wheelbase*Math.tan(steeringAngle),yawError=omega-desiredYaw;
+  const correction=!s.handbrake&&speed>4?clamp(yawError*stability,-4,4):0;
+  const yawLimit=s.handbrake?1.8:clamp(grip*gravity/Math.max(speed,4)*1.3,.22,1.8);
+  const omegaNext = clamp(omega + ((frontForce * frontArm - rearForce * rearArm) / inertia - omega * (2.4 / (1 + speed * .5))-correction) * dt, -yawLimit, yawLimit);
   s.yawRate = -omegaNext;
   s.vx += (fx * longitudinalAcceleration + rx * lateralAcceleration) * dt;
   s.vz += (fz * longitudinalAcceleration + rz * lateralAcceleration) * dt;

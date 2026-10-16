@@ -25,6 +25,10 @@ jobs:
         run: npm ci
       - name: Vérifier la conduite et les circuits
         run: npm test
+      - name: Piloter les spéciales sans téléportation
+        run: |
+          npm run test:driving
+          RALLY_DRIVER_CAR=alpine npm run test:driving -- alps-1 dakar-1
       - name: Vérifier menus, caméras et progression
         run: npm run test:browser
       - name: Construire installateur, portable et version navigateur

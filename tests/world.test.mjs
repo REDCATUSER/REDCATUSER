@@ -59,9 +59,11 @@ test('road surfaces and weather distinguish the six regions without a browser', 
     assert.ok(outside.dist > world.roadWidth / 2);
     assert.ok(['grass', 'sand', 'snow'].includes(outside.surface));
     const canopies = world.root.getObjectsByProperty('name','tree-canopies');
-    assert.ok(canopies.every(part=>part.geometry.type==='IcosahedronGeometry'));
-    assert.ok(canopies.reduce((sum,part)=>sum+part.count,0) >= 300, 'trees use several 3D canopy clusters');
+    for(const part of canopies){part.geometry.computeBoundingBox();const size=part.geometry.boundingBox.getSize(new T.Vector3());assert.ok(size.x>1&&size.y>1&&size.z>1,'foliage has volume from every viewing angle');assert.ok(part.geometry.attributes.position.count<=24,'tree detail remains economical on the GPU')}
+    assert.ok(canopies.reduce((sum,part)=>sum+part.count,0) >= (region==='dakar'?60:500),'forest density is preserved');
     if (region !== 'dakar') assert.ok(world.barriers.length > 100);
     world.dispose();
   }
 });
+
+test('technical routes contain linked hairpins rather than long gentle sine waves',()=>{for(const region of ['alps','monte','romania']){const world=makeWorld(new T.Scene(),stages.find(s=>s.region===region)),headings=world.samples.slice(1).map((p,i)=>Math.atan2(p.x-world.samples[i].x,-(p.z-world.samples[i].z)));assert.ok(Math.max(...headings)-Math.min(...headings)>2.2,region+' lacks opposite tight bends');let changes=0,last=-1000;for(let i=30;i<headings.length-30;i++){const turn=Math.abs(headings[i+25]-headings[i-25]);if(turn>1.5&&i-last>60){changes++;last=i}}assert.ok(changes>=3,region+' needs several genuine hairpins');world.dispose()}});

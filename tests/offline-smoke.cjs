@@ -18,15 +18,16 @@ const executable=process.env.RALLY_BROWSER||['/usr/bin/chromium','/usr/bin/googl
   await page.waitForFunction(()=>window.rallyState);
   const sources=await page.evaluate(()=>JSON.parse(document.getElementById('recordingSources').textContent));
   assert.equal(sources.license,'GPL-2.0-or-later');assert.equal(Object.keys(sources.clips).length,15);
+  const models=await page.evaluate(()=>JSON.parse(document.getElementById('modelSources').textContent));assert.equal(models.license,'GPL-2.0-or-later');assert.equal(Object.keys(models.files).filter(p=>p.endsWith('.obj')).length,6);assert.ok(models.files['GPL-2.0.txt']);
   for(const url of Object.values(sources.clips))assert.equal(Buffer.from(url.split(',')[1],'base64').subarray(0,4).toString(),'RIFF');
   await page.locator('[data-tab=options]').click();await page.selectOption('#quality','low');await page.selectOption('#cameraSetting','2');await page.selectOption('#language','en');
-  await page.locator('[data-tab=free]').click();await page.click('#start');
+  await page.locator('[data-tab=free]').click();await page.click('#start');assert.equal(await page.locator('#setupOverlay').isVisible(),true);await page.click('#confirmStart');
   await page.waitForFunction(()=>rallyState.audio&&rallyState.voiceReady&&rallyState.musicReady&&rallyState.audioLevel>.001,null,{timeout:45000});
   assert.equal(await page.evaluate(()=>rallyState.voiceKind),'mixed');assert.equal(await page.evaluate(()=>rallyState.visibleWheels),0);assert.equal(await page.evaluate(()=>rallyState.fov),82);
-  await page.screenshot({path:path.join(os.tmpdir(),'rally-v5-cockpit.png')});
+  await page.screenshot({path:path.join(os.tmpdir(),'rally-v6-cockpit.png')});
   await page.keyboard.press('Escape');await page.click('#pauseSettings');
-  assert.equal(await page.locator('#optionsForm').isVisible(),true);await page.screenshot({path:path.join(os.tmpdir(),'rally-v5-settings.png')});
-  await page.click('#closeSettings');await page.click('#quit');await page.locator('[data-tab=garage]').click();await page.screenshot({path:path.join(os.tmpdir(),'rally-v5-garage.png')});
+  assert.equal(await page.locator('#optionsForm').isVisible(),true);await page.screenshot({path:path.join(os.tmpdir(),'rally-v6-settings.png')});
+  await page.click('#closeSettings');await page.click('#quit');await page.locator('[data-tab=garage]').click();await page.screenshot({path:path.join(os.tmpdir(),'rally-v6-garage.png')});
   assert.deepEqual(remote,[]);assert.deepEqual(errors,[]);
   console.log(`PASS offline HTML (${fileNavigation?'file://':'in-memory HTML'}): no network requests, cockpit, garage, pause settings, engine, House music, English copilot and included GPL audio source WAVs.`);
  }finally{await browser.close()}

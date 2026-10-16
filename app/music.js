@@ -37,7 +37,7 @@ export class HouseMusic{
  }
  update({enabled=true,master=1,volume=.22,mode='menu',duck=1}={}){
   if(!this.ready)return;
-  this.level=enabled?Math.max(0,Math.min(1,master))*Math.max(0,Math.min(1,volume))*(mode==='paused'?.32:mode==='race'?.60:.85)*duck:0;
+  this.level=enabled&&mode==='menu'?Math.max(0,Math.min(1,master))*Math.max(0,Math.min(1,volume))*.85*duck:0;
   this.gain.gain.setTargetAtTime(this.level,this.ctx.currentTime,.12);
  }
 }

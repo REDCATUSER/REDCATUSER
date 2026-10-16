@@ -64,27 +64,107 @@ not separate authentic recordings of every selectable real-world car.
 Full CC0 text is in CC0-1.0.txt:
   https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
-French copilot phrases
-----------------------
-note-*.ogg and the data URLs in notes-data.js contain original short French
-rally notes synthesized with eSpeak NG 1.52.0's French voice. They are
-computer-generated radio-style speech, not professional human recordings.
-The generated sound assets and original phrase text are provided under the
-MIT license of this project. No eSpeak executable or voice database is
-distributed with the game, and no external speech service is used at runtime.
+Version 6 French and German neural speech
+-----------------------------------------
+The data URLs in notes-data.js (FR) and international-data.js (DE) are newly
+generated neural speech using Piper Siwis (FR) and Thorsten (DE). They are
+not human recordings. Exact model cards, dataset authors, licenses and
+reproduction steps are in NEURAL-VOICES.md. French generated audio is
+redistributed with SIWIS attribution under CC BY 4.0; German generated audio
+is offered under CC0. No speech model or synthesis executable is bundled.
+The old note-*.ogg files remain MIT eSpeak-generated legacy assets; they
+are not selected for French playback in version 6.
 
-Generation tool: https://github.com/espeak-ng/espeak-ng (GPL-3.0-or-later).
-The GPL applies to the synthesis tool, not to independently authored phrase
-text or ordinary audio output generated from it.
+English copilot
+----------------
+The eight supplementary English cues remain MIT eSpeak-generated speech.
+22 English cues use recorded words from Trigger Rally's AB voice pack.
+Author: Andrei Bondor.
+License: GPL version 2 or, at your option, any later version.
+Upstream: Trigger Rally 0.6.6.1, data/sounds/codriver/ab/*.wav.
+Source distribution:
+ https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally_0.6.6.1.orig.tar.gz
+Recording distribution:
+ https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally-data_0.6.6.1-4_all.deb
+Explicit per-file upstream attribution:
+ Andrei Bondor
+     sounds/codriver/ab/* (GPL)
 
-Reproduction:
-  espeak-ng -v fr-fr -s 167 -p 38 -a 155 -w phrase.wav "Gauche deux."
-  ffmpeg -i phrase.wav -af "highpass=f=210,lowpass=f=4200,acompressor=threshold=0.12:ratio=3:attack=5:release=100,loudnorm=I=-17:TP=-2:LRA=6" -ac 1 -ar 22050 -c:a libvorbis -q:a 2 phrase.ogg
+The 15 unmodified source WAVs used are in english-source/: Hairpin, Hard,
+Square, Medium, Easy, Flat, Left, Right, Finish, Jump, Dont, Cut, Snow, Sand,
+and Dirt. Those WAVs are included with the game, and in the source repository:
+ https://github.com/REDCATUSER/REDCATUSER/tree/main/src/audio/english-source
+Playback derivatives join the recorded words, normalize/filter volume and
+encode mono 22.05 kHz Vorbis. They remain GPL-2.0-or-later. The full GPL v2
+license is in GPL-2.0.txt, and in the embedded third-party notices.
+These independently licensed sound assets are aggregated with the MIT game.
+The source asset license does not claim ownership of the original speakers.
 
-All audio data URLs are embedded locally so the Windows build and standalone
-HTML can speak French without Internet access or an installed French voice.
+Difficulty mapping (1 = tightest, 6 = fastest):
+ 1 Hairpin, 2 Hard, 3 Square, 4 Medium, 5 Easy, 6 Flat, then Left or Right.
+There are no authentic French or German human recordings in the default
+build. The settings UI labels their synthetic origin and accepts authorized
+local voice packs. Imported packs keep the author's own declared license.
+
+Music
+-----
+The original House arrangement is generated locally by app/music.js under
+this project's MIT license. It contains original programmed percussion,
+bass and chord patterns, with no samples from commercially released music.
 
 
+NEURAL SPEECH ATTRIBUTION
+========================
+# Voix françaises et allemandes — version 6
+
+Ces annonces sont de la **synthèse neuronale**, pas des prises de voix humaines enregistrées pour le jeu. Elles remplacent les clips français et allemands eSpeak des anciennes éditions. Le jeu lit des fichiers OGG locaux ; aucune synthèse, modèle ni connexion n’est nécessaire pendant la partie. Les phrases et le traitement sont dans `scripts/generate-neural-voices.py`.
+
+- Français : **SIWIS / Piper, fr_FR-siwis-medium**. Dataset SIWIS French Speech Synthesis Database, https://datashare.is.ed.ac.uk/handle/10283/2353 — CC BY 4.0, https://creativecommons.org/licenses/by/4.0/ . Merci aux contributeurs du corpus SIWIS. Les annonces sont générées depuis des textes originaux, accélérées légèrement, normalisées et converties en OGG. L’audio français est redistribué avec cette attribution et sous CC BY 4.0 par précaution.
+- Allemand : **Thorsten Müller / Piper, de_DE-thorsten-medium**. Dataset Thorsten Voice, https://github.com/thorstenMueller/Thorsten-Voice — CC0, https://creativecommons.org/publicdomain/zero/1.0/ . Les annonces originales générées sont mises à disposition sous CC0.
+
+Les fiches exactes des modèles téléchargés sont conservées dans `model-cards/`. La conversion ONNX est distribuée par k2-fsa/sherpa-onnx :
+
+- https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-siwis-medium.tar.bz2
+- https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-medium.tar.bz2
+
+Empreintes SHA-256 des modèles ONNX utilisés :
+
+```text
+b015076c2bedcff22fbedd5da6ffb49b7d0abb2e3bdc51e1a7906e0000e411ed  fr_FR-siwis-medium.onnx
+2d98b40baac55e4206f64114110a3474807e26440b80d465cd202af1e95be5e0  de_DE-thorsten-medium.onnx
+```
+
+Pour reproduire : installer `sherpa-onnx`, `soundfile` et FFmpeg, extraire les deux archives dans un même répertoire, puis lancer `python3 scripts/generate-neural-voices.py --models /chemin/des/modeles`. Les modèles ne sont pas distribués dans le jeu. Les annonces anglaises principales restent les mots humains enregistrés du pack AB, avec leur licence GPL indiquée dans `LICENSE.txt`. Un pack enregistré personnel peut remplacer chaque langue depuis les options.
+
+
+MODEL ATTRIBUTION
+=================
+# Modèles texturés de rallye
+
+Trois carrosseries communautaires de Trigger Rally 0.6.6.1 sont utilisées comme interprétations visuelles de la berline Club, de la RS et de la compacte Integrale. Elles ne constituent pas des reproductions officielles des constructeurs mentionnés dans le jeu.
+
+- Maillages OBJ et MTL : Richard Langridge, Farrer, Iwan Gabovitch, **GPL-2.0-or-later**.
+- Textures de carrosserie : Onsemeliot, **GPL-2.0-or-later**.
+- Sources et attributions exactes : `source/`, dont `AUTHORS.txt` et `GPL-2.0.txt`.
+- Source amont : https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally_0.6.6.1.orig.tar.gz et https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally-data_0.6.6.1-4_all.deb .
+
+`app/vehicle-assets.js` adapte les axes, dimensions et normales, recolore la peinture et applique les déformations d’impact. Les fichiers originaux sont conservés sans modification. Les roues, habitacles et autres carrosseries sont développés dans le projet. Le HTML autonome inclut aussi les originaux dans le bloc JSON `modelSources` encodé en base64. Les modèles et textures GPL restent sous leur licence ; le code indépendant du jeu reste MIT.
+
+Les fichiers `vehicles-data.js` regroupent le texte OBJ des carrosseries et roues ainsi que les PNG originaux en data URL, sans chargement réseau. Les sources complètes sont la référence.
+
+
+SCENERY ATTRIBUTION
+==================
+# Textures de décor
+
+- `needle.png` et `green-tree2.png` : **Bleed**, Tree Collection v2.6, CC BY 3.0, https://opengameart.org/content/tree-collection-v26-bleeds-game-art ; portfolio original http://remusprites.carbonmade.com . Licence : https://creativecommons.org/licenses/by/3.0/ .
+- `detail.jpg` : **Mysteryem**, GPL-2.0-or-later, https://opengameart.org/content/29-grounds-and-walls-and-water-1024x1024 .
+
+Distribution utilisée : Trigger Rally 0.6.6.1 ; attributions amont conservées dans `../models/source/AUTHORS.txt`. Les images sources sont conservées sans modification. Le rendu applique une teinte, dispose le feuillage sur plusieurs plans croisés autour de troncs et branches en 3D, et mélange le détail du sol avec les matériaux générés. Il ne s’agit pas de scans d’arbres 3D. `scenery-data.js` embarque les images pour jouer sans réseau.
+
+
+CC0 1.0
+---------
 Creative Commons Legal Code
 
 CC0 1.0 Universal
@@ -208,51 +288,8 @@ express Statement of Purpose.
     this CC0 or use of the Work.
 
 
-VERSION 4 AUDIO ADDITIONS
-
--------------------------------
-international-data.js contains 30 German and 30 English cues. German and
-supplemental English cues are generated from the original phrase text in
-voice-texts.json using eSpeak NG 1.52.0. They are SYNTHETIC, not human voices.
-Their original phrase text and audio output are provided under the project's
-MIT license. No speech synthesis executable/database is distributed.
-
-22 English cues use recorded words from Trigger Rally's AB voice pack.
-Author: Andrei Bondor.
-License: GPL version 2 or, at your option, any later version.
-Upstream: Trigger Rally 0.6.6.1, data/sounds/codriver/ab/*.wav.
-Source distribution:
- https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally_0.6.6.1.orig.tar.gz
-Recording distribution:
- https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally-data_0.6.6.1-4_all.deb
-Explicit per-file upstream attribution:
- Andrei Bondor
-     sounds/codriver/ab/* (GPL)
-
-The 15 unmodified source WAVs used are in english-source/: Hairpin, Hard,
-Square, Medium, Easy, Flat, Left, Right, Finish, Jump, Dont, Cut, Snow, Sand,
-and Dirt. Those WAVs are included with the game, and in the source repository:
- https://github.com/REDCATUSER/REDCATUSER/tree/main/src/audio/english-source
-Playback derivatives join the recorded words, normalize/filter volume and
-encode mono 22.05 kHz Vorbis. They remain GPL-2.0-or-later. The full GPL v2
-license is in GPL-2.0.txt, and in the embedded third-party notices.
-These independently licensed sound assets are aggregated with the MIT game.
-The source asset license does not claim ownership of the original speakers.
-
-Difficulty mapping (1 = tightest, 6 = fastest):
- 1 Hairpin, 2 Hard, 3 Square, 4 Medium, 5 Easy, 6 Flat, then Left or Right.
-There are no authentic French or German human recordings in the default
-build. The settings UI labels their synthetic origin and accepts authorized
-local voice packs. Imported packs keep the author's own declared license.
-
-Music
------
-The original House arrangement is generated locally by app/music.js under
-this project's MIT license. It contains original programmed percussion,
-bass and chord patterns, with no samples from commercially released music.
-
-
-GPL VERSION 2 — ENGLISH AB SOUND ASSETS
+GPL VERSION 2
+=============
                     GNU GENERAL PUBLIC LICENSE
                        Version 2, June 1991
 

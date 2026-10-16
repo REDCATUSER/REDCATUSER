@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import {assetFor,assetBody} from './vehicle-assets.js';
 
 // Original procedural rally cars. Every surface and texture is made locally;
 // none of the cars depends on a remote model, font, image or service.
@@ -17,7 +18,8 @@ const clamp = T.MathUtils.clamp;
 const mat = (color, roughness = .72, metalness = 0) => new T.MeshStandardMaterial({ color, roughness, metalness });
 
 function roundedGeometry(w, h, d, radius = .04) {
-  return new RoundedBoxGeometry(w, h, d, 2, Math.min(radius, w / 2, h / 2, d / 2));
+  if(radius<=.012||Math.min(w,h,d)<.025)return new T.BoxGeometry(w,h,d);
+  return new RoundedBoxGeometry(w, h, d, 1, Math.min(radius, w / 2, h / 2, d / 2));
 }
 
 function disposeGroup(group) {
@@ -122,10 +124,10 @@ export function createCar(scene, options = {}) {
       const oldId = config.id, oldQuality = config.textureQuality;
       config = { ...config, ...next, tuning: { ...config.tuning, ...(next.tuning || {}) } };
       if ((next.id && next.id !== oldId) || (next.textureQuality && next.textureQuality !== oldQuality)) {
-        disposeGroup(root); root.clear(); build();
+        model.asset?.dispose();disposeGroup(root); root.clear(); build();
         update({...latestInput,dt:0});
       } else {
-        model.paint.color.set(config.color ?? model.profile.color);
+        if(model.asset)model.asset.paint(config.color??'#'+new T.Color(model.profile.color).getHexString());else model.paint.color.set(config.color ?? model.profile.color);
         model.tire.roughness = config.tuning.tires === 'snow' ? .96 : .9;
       }
       api.setHeadlights(headlights);
@@ -140,7 +142,7 @@ export function createCar(scene, options = {}) {
     },
     dispose() {
       if (disposed) return;
-      disposed = true; disposeGroup(root); root.removeFromParent(); root.clear();
+      disposed = true;model.asset?.dispose();disposeGroup(root); root.removeFromParent(); root.clear();
     },
     update(input = {}) { latestInput=input;if (!disposed) update(input); },
   };
@@ -148,7 +150,7 @@ export function createCar(scene, options = {}) {
   function build() {
     const profile = PROFILES[config.id] || PROFILES.club;
     const L = profile.length, W = profile.width, half = L / 2, axle = profile.wheelbase / 2;
-    const paint = new T.MeshPhysicalMaterial({color:config.color ?? profile.color,roughness:.27,metalness:.27,clearcoat:.65,clearcoatRoughness:.26});
+    const paint = new T.MeshStandardMaterial({color:config.color ?? profile.color,roughness:.44,metalness:.18});
     const accent = mat(profile.accent, .37, .15), dark = mat(0x171d23, .80), rubber = mat(0x101419, .94);
     const satin = mat(0x333c43, .58), silver = mat(0xbac1bf, .28, .82), rimMaterial = mat(0xe3e5dc, .35, .55);
     const blackMetal = mat(0x272e33, .33, .68), seatMaterial = mat(0x222b35, .97), beltMaterial = mat(profile.accent, .9);
@@ -167,6 +169,9 @@ export function createCar(scene, options = {}) {
     exterior.name = 'exterior'; inside.name = 'driver-interior'; cockpitShell.name = 'cockpit-visible-shell';
     root.add(exterior, inside, cockpitShell);
     const body = new T.Group(); body.name = 'sprung-body'; exterior.add(body);
+    const yScale=config.id==='alpine'?.84:config.id==='celica'?.86:.89;
+    const baseWidth=W*.44,roofWidth=W*(config.id==='alpine'?.35:.375),frontBase=-.86,frontRoof=config.id==='celica'?-.37:-.51,rearRoof=profile.roofRear,rearBase=Math.min(half-.25,profile.roofRear+.53),roofY=profile.roof;
+    let asset=null;
 
     function mesh(parent, geometry, material, x = 0, y = 0, z = 0) {
       const object = new T.Mesh(geometry, material);
@@ -194,7 +199,8 @@ export function createCar(scene, options = {}) {
 
     // A continuous, tapered shell with real wheel openings, shoulder curvature
     // and rounded front/rear corners rather than a stack of rectangular blocks.
-    const shellPositions = [], shellIndices = [], stationCount = 120, ringCount = 30;
+    if(!assetFor(config.id)){
+    const shellPositions = [], shellIndices = [], stationCount = 88, ringCount = 20;
     function section(z) {
       const u = z / half;
       const taper = 1 - .10 * Math.pow(Math.abs(u), 5);
@@ -204,7 +210,7 @@ export function createCar(scene, options = {}) {
       let bottom = .43;
       for (const center of [-axle, axle]) {
         const offset = z - center;
-        if (Math.abs(offset) < .465) bottom = Math.max(bottom, .40 + Math.sqrt(.465 ** 2 - offset ** 2));
+        if (Math.abs(offset) < .465) bottom = Math.max(bottom, .46 + Math.sqrt(.465 ** 2 - offset ** 2));
       }
       return { width: W * .5 * taper, top, bottom };
     }
@@ -216,7 +222,8 @@ export function createCar(scene, options = {}) {
         // Upper surface smoothly wraps over the two shoulders.
         const y = j < 2 || j > ringCount - 2 ? T.MathUtils.lerp(p.bottom, p.top, j < 2 ? j / 2 : (ringCount - j) / 2) : p.top + Math.cos(angle) * .045;
         shellPositions.push(x, y, z);
-        if (i && j) {
+        const cabin=z>frontBase&&z<rearBase;
+        if (i && j&&!(cabin&&j>2&&j<ringCount-1)) {
           const k = i * (ringCount + 1) + j;
           shellIndices.push(k, k - ringCount - 2, k - 1, k, k - ringCount - 1, k - ringCount - 2);
         }
@@ -239,7 +246,7 @@ export function createCar(scene, options = {}) {
       box(body, .23, .045, .35, side * W * .34, .43, half + .018, dark, .01);
       // Cut-out wheel wells and sculpted fender lips.
       for (const z of [-axle, axle]) {
-        const arch = mesh(body, new T.TorusGeometry(.467, .045, 6, 32, Math.PI), paint, side * W * .505, .40, z);
+        const arch = mesh(body, new T.TorusGeometry(.467, .035, 5, 28, Math.PI), paint, side * W * .505, .46, z);
         arch.rotation.y = Math.PI / 2;
         const inner = mesh(body, new T.TorusGeometry(.436, .037, 5, 24, Math.PI), dark, side * W * .486, .40, z);
         inner.rotation.y = Math.PI / 2;
@@ -282,9 +289,6 @@ export function createCar(scene, options = {}) {
       box(body, .014, .075, .66, side * (W * .50 + .012), .57, .13, accent, .002);
     }
 
-    const baseWidth = W * .44, roofWidth = W * .385;
-    const frontBase = -.86, frontRoof = -.51, rearRoof = profile.roofRear, rearBase = Math.min(half - .25, profile.roofRear + .53);
-    const roofY = profile.roof;
     // Roof panel has a curved cross-section and softened edges.
     const roofShape=new T.Shape();roofShape.moveTo(-roofWidth,-.035);roofShape.quadraticCurveTo(0,.095,roofWidth,-.035);roofShape.lineTo(roofWidth,-.075);roofShape.quadraticCurveTo(0,.045,-roofWidth,-.075);roofShape.closePath();
     const roofGeo=new T.ExtrudeGeometry(roofShape,{depth:rearRoof-frontRoof+.13,bevelEnabled:true,bevelThickness:.012,bevelSize:.012,bevelSegments:2,steps:1,curveSegments:16});
@@ -361,15 +365,21 @@ export function createCar(scene, options = {}) {
       box(body, .35, .04, .015, 0, 1.106, -1.435, dark, .004);
     }
 
+    }else{
+      asset=assetBody(config.id,{length:L,width:W,roof:roofY},config.onChange);body.add(asset.object);asset.paint(config.color??'#'+new T.Color(profile.color).getHexString());
+      for(const side of [-1,1]){const lens=mesh(body,new T.PlaneGeometry(.25,.095),lampMaterial,side*W*.29,.85,-half-.009);lens.rotation.y=Math.PI;}
+    }
+    body.scale.y=yScale;
+
     // Cast-rim wheels with thick, rounded shoulders and instanced tread blocks.
     const wheels = [];
     for (const side of [-1, 1]) for (const z of [-axle, axle]) {
       const pivot = new T.Group(), spin = new T.Group();
       pivot.name = `${z < 0 ? 'front' : 'rear'}-${side < 0 ? 'left' : 'right'}-wheel`;
-      pivot.position.set(side * W * .50, .385, z); pivot.add(spin); root.add(pivot);
-      const tire = mesh(spin, new T.CylinderGeometry(.355, .355, .245, 64, 1), rubber); tire.rotation.z = Math.PI / 2;
+      pivot.position.set(side * W * (asset?.40:.50), asset?.35:.385, z);if(asset)spin.scale.setScalar(.90);pivot.add(spin); root.add(pivot);
+      const tire = mesh(spin, new T.CylinderGeometry(.345, .345, .245, 28, 1), rubber); tire.rotation.z = Math.PI / 2;
       for (const face of [-1, 1]) {
-        const shoulder = mesh(spin, new T.TorusGeometry(.315, .055, 12, 64), rubber, face * .105, 0, 0);
+        const shoulder = mesh(spin, new T.TorusGeometry(.307, .049, 6, 28), rubber, face * .105, 0, 0);
         shoulder.rotation.y = Math.PI / 2;
         const sidewallRing = mesh(spin, new T.TorusGeometry(.277, .004, 4, 32), satin, face * .150, 0, 0);
         sidewallRing.rotation.y = Math.PI / 2;
@@ -393,7 +403,7 @@ export function createCar(scene, options = {}) {
       }
       tread.castShadow = true; spin.add(tread);
       const caliper = box(pivot, .04, .11, .09, side * .10, .01, .15, accent, .015);
-      wheels.push({ pivot, spin, front: z < 0, side, baseY: .385, caliper, physicsIndex:(z < 0 ? 0 : 2)+(side>0?1:0) });
+      wheels.push({ pivot, spin, front: z < 0, side, baseY: asset?.35:.385, caliper, physicsIndex:(z < 0 ? 0 : 2)+(side>0?1:0) });
     }
 
     // The cockpit is real geometry with a clear driver's eye position. There
@@ -510,17 +520,26 @@ export function createCar(scene, options = {}) {
     const lights = [];
     for (const side of [-1, 1]) {
       const light = new T.SpotLight(0xffefcc, 0, 105, .40, .63, 1.65);
-      light.position.set(side * W * .34, .86, -half - .10);
+      light.position.set(side * W * .34, .86*yScale, -half - .10);
       light.target.position.set(side * .7, .38, -40);
       light.visible = false; light.castShadow = false;
       root.add(light, light.target); lights.push(light);
     }
-    const eyeHeight=Math.min(1.40,roofY-.16);
+    inside.scale.y=yScale;cockpitShell.scale.y=yScale;
+    // Only the onboard view needs the detailed dashboard, animated fingers
+    // and upholstery. A compact cabin remains visible through exterior glass.
+    const exteriorCabin=new T.Group();exteriorCabin.name='exterior-cabin';exteriorCabin.scale.y=yScale;root.add(exteriorCabin);
+    box(exteriorCabin,W*.84,.10,1.75,0,.38,.18,dark,0);
+    box(exteriorCabin,W*.82,.20,.36,0,.95,-.64,dark,.04);
+    for(const x of [-.39,.40]){const seat=box(exteriorCabin,.45,.73,.18,x,.92,.72,seatMaterial,.04);seat.rotation.x=-.12;box(exteriorCabin,.29,.20,.15,x,1.35,.78,dark,.035)}
+    mesh(exteriorCabin,new T.SphereGeometry(.12,12,8),glove,-.39,1.26,.47);
+    batchStatic(exteriorCabin);
+    const eyeHeight=Math.min(1.40,roofY-.16)*yScale;
     const cameraAnchors = {
-      chasePosition: new T.Vector3(0, 3.15, 7.8), chaseTarget: new T.Vector3(0, 1.0, -7),
-      hoodPosition: new T.Vector3(0, 1.245, -.985), hoodTarget: new T.Vector3(0, 1.16, -45),
+      chasePosition: new T.Vector3(0, 1.95, 5.6), chaseTarget: new T.Vector3(0, .80, -12),
+      hoodPosition: new T.Vector3(0, 1.245*yScale, -.985), hoodTarget: new T.Vector3(0, 1.16*yScale, -45),
       cockpitPosition: new T.Vector3(-.39, eyeHeight, .56),
-      cockpitTarget: new T.Vector3(-.39, eyeHeight-.11, -45),
+      cockpitTarget: new T.Vector3(-.39, eyeHeight-.11*yScale, -45),
     };
     const dirtMaterial=new T.MeshStandardMaterial({color:0x77664e,roughness:1,transparent:true,opacity:0,depthWrite:false}),dirtLayer=new T.Group();body.add(dirtLayer);
     for(const sign of [-1,1])for(let k=0;k<40;k++){const z=-half+.2+(k*1.618%1)*(L-.4),y=.47+(Math.sin(k*4.71)*.5+.5)*.33;const mark=mesh(dirtLayer,new T.CircleGeometry(.012+(k%5)*.007,7),dirtMaterial,sign*(W*.5+.025),y,z);mark.rotation.y=sign*Math.PI/2;mark.scale.set(1,.6+(k%3)*.5,1);mark.castShadow=false}
@@ -531,7 +550,11 @@ export function createCar(scene, options = {}) {
     for (const hand of hands) batchStatic(hand.hand);
     const animated = new Set([wheelBase, lever, ...hands.flatMap(hand => [hand.hand, hand.arm, hand.forearm])]);
     batchStatic(inside, animated);
-    model = { profile, paint, reflective:[paint,silver,rimMaterial], tire: rubber, lights, lampMaterial, rearMaterial, body, dirtMaterial, cockpitShell, gauge, gaugeTick: 1, wheelBase, wheelSpin, wheels, hands, lever };
+    const deformation=[];body.traverse(o=>{if(o.isMesh&&o.geometry.attributes.position&&!o.material.transparent){const positions=o.geometry.attributes.position;deformation.push({object:o,positions,rest:positions.array.slice()})}});
+    const crackMaterial=new T.MeshBasicMaterial({color:0xb6d2d6,transparent:true,opacity:.8,depthWrite:false}),cracks=new T.Group();cracks.name='cracked-windscreen';cracks.visible=false;
+    for(let i=0;i<9;i++){const angle=i*Math.PI*2/9,points=[];for(let j=0;j<4;j++){const r=j*.065;points.push(new T.Vector3(.27+Math.cos(angle)*r,1.19+j*.03,frontBase+(1.19+j*.03-1.05)/(roofY-1.09)*(frontRoof-frontBase)+.012))}const line=new T.Line(new T.BufferGeometry().setFromPoints(points),crackMaterial);cracks.add(line)}
+    cracks.scale.y=yScale;root.add(cracks);
+    model = { profile, asset, exteriorCabin, yScale, damageKey:'',deformation,cracks, paint, reflective:[paint,silver,rimMaterial], tire: rubber, lights, lampMaterial, rearMaterial, body, dirtMaterial, cockpitShell, gauge, gaugeTick: 1, wheelBase, wheelSpin, wheels, hands, lever };
     Object.assign(api, { exterior, inside, wheels, wheelSpin, hands, lever, cameraAnchors, textureSize:size });
     api.setHeadlights(headlights);
     root.updateMatrixWorld(true);
@@ -544,9 +567,12 @@ export function createCar(scene, options = {}) {
     object.position.copy(a).add(b).multiplyScalar(.5); object.scale.y = Math.max(.001, direction.length());
     object.quaternion.setFromUnitVectors(AXIS_Y, direction.normalize());
   }
-  function update({ steer = 0, speed = 0, dt = 0, shift = 0, rpm = 900, gear = 1, brake = false, cameraMode = 0, suspension = 0, roll = 0, dirt = 0, environmentLight = .6, wheels: wheelStates } = {}) {
+  function update({ steer = 0, speed = 0, dt = 0, shift = 0, rpm = 900, gear = 1, brake = false, cameraMode = 0, suspension = 0, roll = 0, dirt = 0, damage=0,damageZones={}, environmentLight = .6, wheels: wheelStates } = {}) {
     const { wheelSpin, wheels, body, hands, lever, gauge, cockpitShell } = model;
-    model.dirtMaterial.opacity=clamp(Number(dirt)||0,0,.65);for(const m of model.reflective)m.envMapIntensity=clamp(Number(environmentLight)||0,0,1.5);
+    model.dirtMaterial.opacity=clamp(Math.max(Number(dirt)||0,damage*.5),0,.65);for(const m of model.reflective)m.envMapIntensity=clamp(Number(environmentLight)||0,0,1.5);
+    model.cracks.visible=damage>.35&&cameraMode!==1;
+    const damageKey=JSON.stringify(damageZones);
+    if(damageKey!==model.damageKey){model.damageKey=damageKey;for(const {object,positions,rest}of model.deformation){object.updateMatrix();const matrix=object.matrix,inverse=matrix.clone().invert(),v=new T.Vector3();for(let i=0;i<positions.count;i++){v.fromArray(rest,i*3).applyMatrix4(matrix);const front=clamp((-v.z-.5)/1.5,0,1)*(damageZones.front||0),rear=clamp((v.z-.5)/1.5,0,1)*(damageZones.rear||0),side=clamp((Math.abs(v.x)-.45)/.5,0,1)*(damageZones[v.x<0?'left':'right']||0),crush=front+rear;v.z+=(front-rear)*.56;v.y-=crush*.12*Math.max(0,v.y-.55);v.x*=1-side*.22;v.x+=Math.sin(i*1.71)*crush*.018;v.applyMatrix4(inverse);positions.setXYZ(i,v.x,v.y,v.z)}positions.needsUpdate=true;object.geometry.computeVertexNormals();object.geometry.computeBoundingSphere()}}
     const finiteSteer = Number.isFinite(steer) ? clamp(steer, -1, 1) : 0;
     const finiteDt = Number.isFinite(dt) ? clamp(dt, 0, .10) : 0;
     const finiteSpeed = Number.isFinite(speed) ? speed : 0;
@@ -564,6 +590,7 @@ export function createCar(scene, options = {}) {
     body.position.y = clamp(Number(suspension) || 0, -.035, .045);
     body.rotation.z = clamp(Number(roll) || 0, -.04, .04);
     api.exterior.visible = cameraMode !== 2;
+    api.inside.visible=cameraMode===2;model.exteriorCabin.visible=cameraMode!==2&&!model.asset;
     cockpitShell.visible = cameraMode === 2;
     root.updateMatrixWorld(true);
     inverseQuaternion.copy(root.quaternion).invert();
@@ -571,7 +598,7 @@ export function createCar(scene, options = {}) {
     const reach = Math.sin(clamp(Number(shift) || 0, 0, 1) * Math.PI);
     for (const hand of hands) {
       target.set(hand.sign * .221, .064, .025);
-      wheelSpin.localToWorld(target); root.worldToLocal(target);
+      wheelSpin.localToWorld(target); api.inside.worldToLocal(target);
       const handReach = hand.sign === 1 ? reach : 0;
       target.lerp(new T.Vector3(.10, .865, -.266), handReach);
       hand.hand.position.copy(target);

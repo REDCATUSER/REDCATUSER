@@ -24,12 +24,18 @@ test('all six cars keep the pilot sight line clear and survive garage changes', 
     assert.ok(car.wheels.every(w=>!w.pivot.visible),'texture changes preserve cockpit visibility');
     car.update({cameraMode:1});
     assert.ok(car.wheels.every(w=>!w.pivot.visible),'wheels must disappear from the hood view');
+    const hoodEye=car.root.localToWorld(car.cameraAnchors.hoodPosition.clone()),hoodTarget=car.root.localToWorld(car.cameraAnchors.hoodTarget.clone());ray.set(hoodEye,hoodTarget.sub(hoodEye).normalize());const hoodOpaque=[];car.root.traverseVisible(o=>{if(o.isMesh&&!o.material.transparent)hoodOpaque.push(o)});assert.equal(ray.intersectObjects(hoodOpaque,false).length,0,`${id} obscures the hood camera`);
     car.update({ cameraMode: 0 });
     assert.equal(car.exterior.visible, true);
     assert.ok(car.wheels.every(w=>w.pivot.visible));
+    let triangles=0;car.root.traverseVisible(o=>{if(o.isMesh)triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3*(o.isInstancedMesh?o.count:1)});assert.ok(triangles<30000,`${id}: detailed cockpit must not burden the exterior view`);
   }
   car.dispose();
   assert.equal(scene.children.length, 0);
+});
+
+test('body damage deforms impacted panels and a repaired car restores its original shape',()=>{
+ const car=createCar(new T.Scene(),{id:'alpine'});car.update({cameraMode:0});const mesh=car.exterior.getObjectsByProperty('name','batched-car-detail').find(m=>!m.material.transparent&&m.geometry.attributes.position.count>2000),original=mesh.geometry.attributes.position.array.slice();car.update({damage:.6,damageZones:{front:.6}});assert.notDeepEqual(mesh.geometry.attributes.position.array,original);car.update({damage:0,damageZones:{}});for(let i=0;i<original.length;i++)assert.ok(Math.abs(mesh.geometry.attributes.position.array[i]-original[i])<1e-5);car.dispose();
 });
 
 test('hands stay attached to the turning wheel and return after shifting', () => {

@@ -34,35 +34,20 @@ not separate authentic recordings of every selectable real-world car.
 Full CC0 text is in CC0-1.0.txt:
   https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
-French copilot phrases
-----------------------
-note-*.ogg and the data URLs in notes-data.js contain original short French
-rally notes synthesized with eSpeak NG 1.52.0's French voice. They are
-computer-generated radio-style speech, not professional human recordings.
-The generated sound assets and original phrase text are provided under the
-MIT license of this project. No eSpeak executable or voice database is
-distributed with the game, and no external speech service is used at runtime.
+Version 6 French and German neural speech
+-----------------------------------------
+The data URLs in notes-data.js (FR) and international-data.js (DE) are newly
+generated neural speech using Piper Siwis (FR) and Thorsten (DE). They are
+not human recordings. Exact model cards, dataset authors, licenses and
+reproduction steps are in NEURAL-VOICES.md. French generated audio is
+redistributed with SIWIS attribution under CC BY 4.0; German generated audio
+is offered under CC0. No speech model or synthesis executable is bundled.
+The old note-*.ogg files remain MIT eSpeak-generated legacy assets; they
+are not selected for French playback in version 6.
 
-Generation tool: https://github.com/espeak-ng/espeak-ng (GPL-3.0-or-later).
-The GPL applies to the synthesis tool, not to independently authored phrase
-text or ordinary audio output generated from it.
-
-Reproduction:
-  espeak-ng -v fr-fr -s 167 -p 38 -a 155 -w phrase.wav "Gauche deux."
-  ffmpeg -i phrase.wav -af "highpass=f=210,lowpass=f=4200,acompressor=threshold=0.12:ratio=3:attack=5:release=100,loudnorm=I=-17:TP=-2:LRA=6" -ac 1 -ar 22050 -c:a libvorbis -q:a 2 phrase.ogg
-
-All audio data URLs are embedded locally so the Windows build and standalone
-HTML can speak French without Internet access or an installed French voice.
-
-
-Version 4 international copilot
--------------------------------
-international-data.js contains 30 German and 30 English cues. German and
-supplemental English cues are generated from the original phrase text in
-voice-texts.json using eSpeak NG 1.52.0. They are SYNTHETIC, not human voices.
-Their original phrase text and audio output are provided under the project's
-MIT license. No speech synthesis executable/database is distributed.
-
+English copilot
+----------------
+The eight supplementary English cues remain MIT eSpeak-generated speech.
 22 English cues use recorded words from Trigger Rally's AB voice pack.
 Author: Andrei Bondor.
 License: GPL version 2 or, at your option, any later version.
