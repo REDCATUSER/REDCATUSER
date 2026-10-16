@@ -29,7 +29,13 @@
     "dontCut": "Do not cut.",
     "100": "One hundred metres.",
     "200": "Two hundred metres.",
-    "300": "Three hundred metres."
+    "300": "Three hundred metres.",
+    "count3": "Three!",
+    "count2": "Two!",
+    "count1": "One!",
+    "go": "Go!",
+    "crash1": "Are you sure we'll finish?",
+    "crash2": "You okay? That was a big hit!"
   },
   "de": {
     "left1": "Links 1.",
@@ -61,7 +67,13 @@
     "dontCut": "Nicht schneiden.",
     "100": "Hundert Meter.",
     "200": "Zweihundert Meter.",
-    "300": "Dreihundert Meter."
+    "300": "Dreihundert Meter.",
+    "count3": "Drei!",
+    "count2": "Zwei!",
+    "count1": "Eins!",
+    "go": "Los!",
+    "crash1": "Meinst du, wir kommen noch ins Ziel?",
+    "crash2": "Alles okay? Das war ein harter Einschlag!"
   },
   "fr": {
     "100": "Cent mètres.",
@@ -93,6 +105,12 @@
     "sand": "Attention, sable profond.",
     "rough": "Attention, route dégradée.",
     "brake": "Attention, freinage.",
-    "dontCut": "Ne coupe pas."
+    "dontCut": "Ne coupe pas.",
+    "count3": "Trois !",
+    "count2": "Deux !",
+    "count1": "Un !",
+    "go": "Partez !",
+    "crash1": "T'es sûr qu'on va finir ?",
+    "crash2": "Ça va ? La voiture a pris cher !"
   }
 }

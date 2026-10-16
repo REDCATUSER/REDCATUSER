@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, integrate, shift, resetDynamics } from '../app/physics.js';
+import { createState, integrate, shift, resetDynamics, updateStationaryEngine } from '../app/physics.js';
 
 test('driven axle loading distinguishes FWD, RWD and AWD under full acceleration',()=>{
  const fwd=createState(),rwd=createState(),awd=createState();for(let i=0;i<480;i++)for(const [s,driveType]of [[fwd,'fwd'],[rwd,'rwd'],[awd,'awd']])integrate(s,{throttle:1},1/120,{surface:'asphalt',car:{mass:1100,power:300,driveType}});
@@ -154,12 +154,105 @@ test('braking at rest engages a bounded reverse after a short delay', () => {
 });
 
 test('gear requests are bounded and invalid requests do not corrupt the gearbox', () => {
-  const s = createState();
-  assert.equal(shift(s, 0), false);
+  const s = createState(); s.manual = true;
   assert.equal(shift(s, NaN), false);
   assert.equal(s.gear, 1);
   assert.equal(shift(s, 99), true);
   assert.equal(s.gear, 6);
+  drive(s, {}, .5);
+  assert.equal(shift(s, -99), true);
+  assert.equal(s.gear, -1);
+});
+
+test('manual neutral revs freely without propelling the car and coasts without gear braking', () => {
+  const s = createState(); s.manual = true;
+  assert.equal(shift(s, 0), true);
+  drive(s, { throttle: 1 }, 2);
+  assert.equal(s.gear, 0);
+  assert.ok(s.rpm > 7200, `neutral revs ${s.rpm}`);
+  assert.ok([s.x, s.z, s.speed, s.wheelSlip].every(value => Math.abs(value) < .001));
+  drive(s, {}, 1);
+  assert.ok(s.rpm < 1100, `released revs ${s.rpm}`);
+  const neutral = rolling(20), second = rolling(20);
+  neutral.manual = second.manual = true; neutral.gear = 0; second.gear = 2;
+  drive(neutral, {}, 2); drive(second, {}, 2);
+  assert.ok(neutral.speed > second.speed + .5, 'neutral disconnects the engine from the wheels');
+});
+
+test('manual reverse is selected explicitly and the brake never selects it', () => {
+  const s = createState(); s.manual = true;
+  drive(s, { brake: 1 }, 3);
+  assert.equal(s.gear, 1);
+  assert.ok(Math.abs(s.speed) < .001);
+  assert.equal(shift(s, 0), true);
+  drive(s, {}, .5);
+  assert.equal(shift(s, -1), true);
+  drive(s, { throttle: 1 }, 8);
+  assert.ok(s.speed < -5 && s.speed > -10.1, `reverse speed ${s.speed}`);
+  assert.equal(s.gear, -1);
+  assert.ok(s.z > 10);
+  drive(s, { brake: 1 }, 4);
+  assert.ok(Math.abs(s.speed) < .01, `reverse braking left ${s.speed}`);
+  drive(s, { brake: 1 }, 2);
+  assert.ok(Math.abs(s.speed) < .01, 'holding the brake cannot accelerate backwards');
+  assert.equal(shift(s, 0), true);
+  drive(s, {}, .5);
+  assert.equal(shift(s, 1), true);
+  drive(s, { throttle: 1 }, 4);
+  assert.ok(s.speed > 10, 'a stopped reverse maneuver can return to first gear');
+});
+
+test('direction interlock prevents a driving-speed reverse or forward engagement', () => {
+  const s = rolling(15); s.manual = true;
+  assert.equal(shift(s, -1), false);
+  assert.equal(s.gear, 1);
+  assert.equal(shift(s, 0), true, 'neutral remains available while moving');
+  drive(s, {}, .5);
+  assert.equal(shift(s, -1), false, 'neutral cannot bypass the reverse interlock');
+  const reversing = rolling(-4); reversing.manual = true; reversing.gear = -1;
+  assert.equal(shift(reversing, 1), false);
+  assert.equal(reversing.gear, -1);
+});
+
+test('countdown revs and shifts change the engine without moving the held car', () => {
+  const s = createState(); s.manual = true; s.gear = 0;
+  for (let i = 0; i < 120; i++) updateStationaryEngine(s, { throttle: 1 }, 1 / 120);
+  assert.ok(s.rpm > 7200);
+  assert.deepEqual([s.x, s.z, s.vx, s.vz, s.speed], [0, 0, 0, 0, 0]);
+  assert.ok(s.wheels.every(w => w.rotation === 0 && w.travel === 0));
+  assert.equal(shift(s, 1), true);
+  for (let i = 0; i < 60; i++) updateStationaryEngine(s, { throttle: .8 }, 1 / 120);
+  assert.equal(s.shiftRemaining, 0);
+  assert.equal(s.gear, 1);
+  assert.equal(s.speed, 0);
+  drive(s, { throttle: 1 }, 1);
+  assert.ok(s.speed > 3, 'releasing the start hold engages the selected gear');
+});
+
+test('returning to automatic from neutral restores forward drive', () => {
+  const s = createState(); s.manual = true; s.gear = 0;
+  drive(s, { throttle: 1 }, 1);
+  s.manual = false;
+  drive(s, { throttle: 1 }, 3);
+  assert.ok(s.gear >= 1 && s.gear <= 6);
+  assert.ok(s.speed > 8);
+});
+
+test('manual brakes hold a neutral car on a moderate downhill and low grip still matters', () => {
+  const held = createState(); held.manual = true; held.gear = 0;
+  drive(held, { brake: 1 }, 3, { surface: 'asphalt', slope: -.1 });
+  assert.ok(Math.abs(held.speed) < .01);
+  assert.ok(Math.abs(held.z) < .01);
+  const comfortable = drive(rolling(), { brake: 1 }, 1, { surface: 'asphalt', gripMultiplier: 1.2 });
+  const difficult = drive(rolling(), { brake: 1 }, 1, { surface: 'asphalt', gripMultiplier: .8 });
+  assert.ok(comfortable.speed < difficult.speed - 2);
+});
+
+test('wheel load starts balanced for both front-heavy and rear-heavy cars', () => {
+  for (const frontWeight of [.43, .58]) {
+    const s = drive(createState(), {}, 1, { surface: 'asphalt', car: { frontWeight } });
+    for (const wheel of s.wheels) assert.ok(Math.abs(wheel.load - 1) < .001, `load ${wheel.load}`);
+  }
 });
 
 test('fixed substeps are consistent at 60 and 120 Hz', () => {

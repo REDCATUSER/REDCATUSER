@@ -1,10 +1,11 @@
 import {ACTIONS,DEFAULT_BINDINGS,keyLabel,validKey} from './settings.js';
+import {difficultyFor,normalizeDifficulty} from './difficulty.js';
 const $=id=>document.getElementById(id);
-const fields=['manual','copilot','cameraSetting','quality','textureQuality','resolution','windowMode','language','volume','musicVolume','engineVolume','copilotVolume','effectsVolume','ghost','gamepad','vibration','damage','assist','ai','deadzone','sensitivity'];
+const fields=['manual','copilot','cameraSetting','quality','textureQuality','resolution','windowMode','language','volume','musicVolume','engineVolume','copilotVolume','effectsVolume','ghost','gamepad','vibration','damage','assist','difficulty','ai','deadzone','sensitivity'];
 export class SettingsPanel{
  constructor({career,apply,onImport,onClear,voiceInfo}){
   Object.assign(this,{career,apply,onImport,onClear,voiceInfo});this.capture=null;this.isOpen=false;
-  for(const id of fields)$(id).addEventListener($(id).type==='range'?'input':'change',()=>this.save(id));
+  for(const id of fields){const el=$(id);if(el)el.addEventListener(el.type==='range'?'input':'change',()=>this.save(id))}
   $('bindings').onclick=e=>{const b=e.target.closest('[data-action]');if(!b)return;this.cancelCapture();this.capture={action:b.dataset.action,slot:Number(b.dataset.slot),button:b};b.classList.add('listening');b.textContent='…';$('bindingStatus').textContent='Appuyez sur une touche. Échap pour annuler.'};
   document.addEventListener('keydown',e=>this.captureKey(e),true);
   $('resetBindings').onclick=()=>{this.cancelCapture();career.setSettings({bindings:DEFAULT_BINDINGS});this.renderBindings();this.apply('bindings');$('bindingStatus').textContent='Commandes par défaut rétablies.'};
@@ -14,11 +15,14 @@ export class SettingsPanel{
   $('closeSettings').onclick=()=>this.close();this.sync();
  }
  save(id){
-  const patch={};for(const field of fields){const el=$(field);patch[field==='cameraSetting'?'camera':field]=el.type==='checkbox'?el.checked:el.type==='range'||field==='cameraSetting'?Number(el.value):el.value}
-  this.career.setSettings(patch);this.updateOutputs();this.apply(id);this.updateVoiceStatus();
+  const patch={};for(const field of fields){const el=$(field);if(el)patch[field==='cameraSetting'?'camera':field]=el.type==='checkbox'?el.checked:el.type==='range'||field==='cameraSetting'?Number(el.value):el.value}
+  if(id==='ai')patch.difficulty=normalizeDifficulty(undefined,patch.ai);
+  if(id==='difficulty'||id==='ai')patch.assist=difficultyFor(patch.difficulty).assist;
+  this.career.setSettings(patch);this.syncFields();this.updateOutputs();this.apply(id==='ai'?'difficulty':id);this.updateVoiceStatus();
  }
+ syncFields(){for(const id of fields){const el=$(id);if(!el)continue;const value=this.career.data.settings[id==='cameraSetting'?'camera':id];if(el.type==='checkbox')el.checked=value;else el.value=String(value)}}
  sync(){
-  for(const id of fields){const el=$(id),value=this.career.data.settings[id==='cameraSetting'?'camera':id];if(el.type==='checkbox')el.checked=value;else el.value=String(value)}
+  this.syncFields();
   this.updateOutputs();this.renderBindings();this.updateVoiceStatus();
  }
  updateOutputs(){for(const el of document.querySelectorAll('#optionsForm output'))el.textContent=$(el.htmlFor).value+' %'}

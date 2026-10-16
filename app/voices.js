@@ -2,7 +2,7 @@ import {NOTE_AUDIO} from '../src/audio/notes-data.js';
 import {INTERNATIONAL_AUDIO} from '../src/audio/international-data.js';
 export const VOICE_PACKS={
  fr:{name:'Français · Siwis',kind:'neural',author:'SIWIS / Piper · synthèse neuronale',clips:NOTE_AUDIO},
- en:{name:'English · AB',kind:'mixed',author:'Andrei Bondor / Trigger Rally',clips:INTERNATIONAL_AUDIO.en},
+ en:{name:'English · LJ + AB',kind:'mixed',author:'LJ Speech / Piper (neural) · Andrei Bondor (recorded)',clips:INTERNATIONAL_AUDIO.en},
  de:{name:'Deutsch · Thorsten',kind:'neural',author:'Thorsten Müller / Piper · neuronale Synthese',clips:INTERNATIONAL_AUDIO.de}
 };
 export function voiceText(code,language='fr'){return VOICE_PACKS[language]?.clips[code]?.text||NOTE_AUDIO[code]?.text||code}

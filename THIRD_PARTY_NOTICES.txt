@@ -64,22 +64,25 @@ not separate authentic recordings of every selectable real-world car.
 Full CC0 text is in CC0-1.0.txt:
   https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
-Version 6 French and German neural speech
------------------------------------------
-The data URLs in notes-data.js (FR) and international-data.js (DE) are newly
-generated neural speech using Piper Siwis (FR) and Thorsten (DE). They are
-not human recordings. Exact model cards, dataset authors, licenses and
-reproduction steps are in NEURAL-VOICES.md. French generated audio is
-redistributed with SIWIS attribution under CC BY 4.0; German generated audio
-is offered under CC0. No speech model or synthesis executable is bundled.
-The old note-*.ogg files remain MIT eSpeak-generated legacy assets; they
-are not selected for French playback in version 6.
+Version 7 offline neural speech (FR / DE / EN)
+--------------------------------------------
+The data URLs in notes-data.js (FR) and international-data.js (DE) are
+neural speech generated using Piper Siwis (FR) and Thorsten (DE). English
+numeric turns, start-light numbers, GO, crash reactions and legacy eSpeak
+supplements now use Piper LJ Speech. They are not human recordings.
+Exact model cards, dataset authors, licenses, source URLs and reproduction
+steps are in NEURAL-VOICES.md. French generated audio is redistributed with
+SIWIS attribution under CC BY 4.0. German and English generated clips are
+offered under CC0. The LJ Speech corpus is public domain according to its
+model card. No speech model or synthesis executable is bundled.
+The old note-*.ogg files remain MIT eSpeak-generated legacy assets and are
+not selected by the default language packs in version 7.
 
-English copilot
-----------------
-The eight supplementary English cues remain MIT eSpeak-generated speech.
-22 English cues use recorded words from Trigger Rally's AB voice pack.
-Author: Andrei Bondor.
+English recorded copilot cues
+----------------------------
+Ten nonnumeric English cues use recorded words from Trigger Rally's AB
+voice pack. The other 26 English cues are explicitly marked neural.
+Recorded voice author: Andrei Bondor.
 License: GPL version 2 or, at your option, any later version.
 Upstream: Trigger Rally 0.6.6.1, data/sounds/codriver/ab/*.wav.
 Source distribution:
@@ -90,21 +93,22 @@ Explicit per-file upstream attribution:
  Andrei Bondor
      sounds/codriver/ab/* (GPL)
 
-The 15 unmodified source WAVs used are in english-source/: Hairpin, Hard,
-Square, Medium, Easy, Flat, Left, Right, Finish, Jump, Dont, Cut, Snow, Sand,
-and Dirt. Those WAVs are included with the game, and in the source repository:
+The 15 unmodified source WAVs from earlier editions are preserved in
+english-source/: Hairpin, Hard, Square, Medium, Easy, Flat, Left, Right,
+Finish, Jump, Dont, Cut, Snow, Sand, and Dirt. The Hard / Square / Medium /
+Easy recordings are no longer used to approximate numbered notes.
+Source repository:
  https://github.com/REDCATUSER/REDCATUSER/tree/main/src/audio/english-source
-Playback derivatives join the recorded words, normalize/filter volume and
-encode mono 22.05 kHz Vorbis. They remain GPL-2.0-or-later. The full GPL v2
-license is in GPL-2.0.txt, and in the embedded third-party notices.
+Recorded playback derivatives join the matching words, normalize/filter
+volume and encode mono 22.05 kHz Vorbis. They remain GPL-2.0-or-later.
+The full GPL v2 license is in GPL-2.0.txt and embedded third-party notices.
 These independently licensed sound assets are aggregated with the MIT game.
 The source asset license does not claim ownership of the original speakers.
 
-Difficulty mapping (1 = tightest, 6 = fastest):
- 1 Hairpin, 2 Hard, 3 Square, 4 Medium, 5 Easy, 6 Flat, then Left or Right.
-There are no authentic French or German human recordings in the default
-build. The settings UI labels their synthetic origin and accepts authorized
-local voice packs. Imported packs keep the author's own declared license.
+The default build contains no authentic French or German human recordings.
+The settings UI labels voice origin and accepts authorized local voice packs.
+Imported packs keep their author's own declared license. Numeric turns use
+1 for the tightest bend through 6 for the fastest bend in all three languages.
 
 Music
 -----
@@ -115,46 +119,54 @@ bass and chord patterns, with no samples from commercially released music.
 
 NEURAL SPEECH ATTRIBUTION
 ========================
-# Voix françaises et allemandes — version 6
+# Voix neuronales — version 7
 
-Ces annonces sont de la **synthèse neuronale**, pas des prises de voix humaines enregistrées pour le jeu. Elles remplacent les clips français et allemands eSpeak des anciennes éditions. Le jeu lit des fichiers OGG locaux ; aucune synthèse, modèle ni connexion n’est nécessaire pendant la partie. Les phrases et le traitement sont dans `scripts/generate-neural-voices.py`.
+Les voix françaises et allemandes, les notes anglaises numérotées, le décompte et les réactions aux accidents sont de la **synthèse neuronale**, pas des prises de voix humaines enregistrées pour le jeu. Les fichiers OGG sont embarqués : aucun modèle, service distant ni synthèse ne fonctionne pendant la partie. Les textes originaux sont dans `voice-texts.json` et leur génération dans `scripts/generate-neural-voices.py`.
 
-- Français : **SIWIS / Piper, fr_FR-siwis-medium**. Dataset SIWIS French Speech Synthesis Database, https://datashare.is.ed.ac.uk/handle/10283/2353 — CC BY 4.0, https://creativecommons.org/licenses/by/4.0/ . Merci aux contributeurs du corpus SIWIS. Les annonces sont générées depuis des textes originaux, accélérées légèrement, normalisées et converties en OGG. L’audio français est redistribué avec cette attribution et sous CC BY 4.0 par précaution.
+- Français : **SIWIS / Piper, fr_FR-siwis-medium**. Dataset SIWIS French Speech Synthesis Database, https://datashare.is.ed.ac.uk/handle/10283/2353 — CC BY 4.0, https://creativecommons.org/licenses/by/4.0/ . Merci aux contributeurs du corpus SIWIS. Les annonces générées sont accélérées légèrement, rognées, normalisées et converties en OGG. L’audio français est redistribué avec cette attribution et sous CC BY 4.0 par précaution.
 - Allemand : **Thorsten Müller / Piper, de_DE-thorsten-medium**. Dataset Thorsten Voice, https://github.com/thorstenMueller/Thorsten-Voice — CC0, https://creativecommons.org/publicdomain/zero/1.0/ . Les annonces originales générées sont mises à disposition sous CC0.
+- Anglais : **LJ Speech / Piper, en_US-ljspeech-medium**. Corpus lu par Linda Johnson, compilé par Keith Ito, modèle entraîné par Bryce Beattie. https://keithito.com/LJ-Speech-Dataset/ ; https://brycebeattie.com/files/tts/ . Le corpus est dans le domaine public selon la fiche du modèle. Les annonces originales générées sont mises à disposition sous CC0. Elles remplacent les anciens compléments eSpeak et les anciennes associations « Hard Left » afin de prononcer réellement « Left 2 ».
 
-Les fiches exactes des modèles téléchargés sont conservées dans `model-cards/`. La conversion ONNX est distribuée par k2-fsa/sherpa-onnx :
+Les dix annonces anglaises non numériques restantes sont les enregistrements humains AB de Trigger Rally, par Andrei Bondor, sous GPL-2.0-or-later. Le pack anglais est donc identifié comme **mixte**. L’origine et les sources exactes sont dans `LICENSE.txt`. Des packs personnels enregistrés peuvent remplacer les annonces depuis les options.
+
+Les fiches exactes des trois modèles utilisés sont conservées dans `model-cards/`. La conversion ONNX est distribuée par k2-fsa/sherpa-onnx :
 
 - https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-siwis-medium.tar.bz2
 - https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-medium.tar.bz2
+- https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-ljspeech-medium.tar.bz2
 
 Empreintes SHA-256 des modèles ONNX utilisés :
 
 ```text
 b015076c2bedcff22fbedd5da6ffb49b7d0abb2e3bdc51e1a7906e0000e411ed  fr_FR-siwis-medium.onnx
 2d98b40baac55e4206f64114110a3474807e26440b80d465cd202af1e95be5e0  de_DE-thorsten-medium.onnx
+8ceba58a4b540d4e7e7e24ad079cf0d92762a4fd334e059f12940787c6c37b3d  en_US-ljspeech-medium.onnx
 ```
 
-Pour reproduire : installer `sherpa-onnx`, `soundfile` et FFmpeg, extraire les deux archives dans un même répertoire, puis lancer `python3 scripts/generate-neural-voices.py --models /chemin/des/modeles`. Les modèles ne sont pas distribués dans le jeu. Les annonces anglaises principales restent les mots humains enregistrés du pack AB, avec leur licence GPL indiquée dans `LICENSE.txt`. Un pack enregistré personnel peut remplacer chaque langue depuis les options.
+Pour reproduire : installer `sherpa-onnx`, `numpy`, `soundfile` et FFmpeg, extraire les trois archives dans un même répertoire, puis lancer `python3 scripts/generate-neural-voices.py --models /chemin/des/modeles`. Les modèles ne sont pas distribués dans le jeu. Le script conserve les annonces AB non numériques préexistantes, modifie les notes numérotées et génère les nouvelles annonces. Les modèles Lessac et Ryan, examinés mais non retenus, ne sont pas utilisés.
 
 
 MODEL ATTRIBUTION
 =================
-# Modèles texturés de rallye
+# Voitures rétro : silhouettes originales
 
-Trois carrosseries communautaires de Trigger Rally 0.6.6.1 sont utilisées comme interprétations visuelles de la berline Club, de la RS et de la compacte Integrale. Elles ne constituent pas des reproductions officielles des constructeurs mentionnés dans le jeu.
+Les six voitures affichées dans la version 7 sont créées dans le projet. `app/vehicle-assets.js` contient leurs profils de carrosserie ; `app/car.js` construit les surfaces, arches ouvertes, roues, livrées pixelisées et habitacles. Les proportions et équipements varient entre compacte, berlinette, berline deux portes, hatchback, coupé fastback et coupé Groupe B. Chaque voiture possède son propre tableau de bord et un volant animé. Ces interprétations rétro ne sont pas des modèles officiels des constructeurs mentionnés dans le jeu.
+
+Les peintures, numéros, marques fictives, matériaux de l'habitacle et cadrans sont dessinés localement. Aucun modèle distant n'est nécessaire. Ces créations originales et leur code sont sous la licence MIT du projet.
+
+## Archives des anciens modèles communautaires
+
+Les trois carrosseries de Trigger Rally 0.6.6.1 employées dans la version 6 restent archivées dans `source/` ; elles ne sont plus affichées dans le jeu actuel.
 
 - Maillages OBJ et MTL : Richard Langridge, Farrer, Iwan Gabovitch, **GPL-2.0-or-later**.
 - Textures de carrosserie : Onsemeliot, **GPL-2.0-or-later**.
 - Sources et attributions exactes : `source/`, dont `AUTHORS.txt` et `GPL-2.0.txt`.
 - Source amont : https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally_0.6.6.1.orig.tar.gz et https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally-data_0.6.6.1-4_all.deb .
 
-`app/vehicle-assets.js` adapte les axes, dimensions et normales, recolore la peinture et applique les déformations d’impact. Les fichiers originaux sont conservés sans modification. Les roues, habitacles et autres carrosseries sont développés dans le projet. Le HTML autonome inclut aussi les originaux dans le bloc JSON `modelSources` encodé en base64. Les modèles et textures GPL restent sous leur licence ; le code indépendant du jeu reste MIT.
+Ces originaux sont conservés sans modification. `vehicles-data.js` en est une ancienne copie embarquée (OBJ et PNG en data URL), non importée par le moteur de la version 7. Le HTML autonome conserve également les originaux dans son bloc JSON `modelSources` en base64. Ces archives et leurs textures restent sous GPL-2.0-or-later ; leur présence ne change pas la licence du code indépendant ni des nouvelles carrosseries originales.
 
-Les fichiers `vehicles-data.js` regroupent le texte OBJ des carrosseries et roues ainsi que les PNG originaux en data URL, sans chargement réseau. Les sources complètes sont la référence.
+Pour régénérer l'archive embarquée : `node scripts/generate-model-data.mjs`.
 
-
-SCENERY ATTRIBUTION
-==================
 # Textures de décor
 
 - `needle.png` et `green-tree2.png` : **Bleed**, Tree Collection v2.6, CC BY 3.0, https://opengameart.org/content/tree-collection-v26-bleeds-game-art ; portfolio original http://remusprites.carbonmade.com . Licence : https://creativecommons.org/licenses/by/3.0/ .

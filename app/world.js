@@ -2,6 +2,8 @@ import * as T from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {SCENERY} from '../src/scenery/scenery-data.js';
 import { STAGES } from './content.js';
+import {routeDesign} from './route-designs.js';
+import {spectatorAtlas,flashTexture,FICTIONAL_SPONSORS} from './retro-scenery.js';
 
 export const stages = STAGES;
 export const height = (x, z) => Math.sin(x * .008) * 1.4 + Math.cos(z * .006) * 2;
@@ -58,23 +60,22 @@ function canvasTexture(kind, color, seed, size=512) {
 // cross and the height-field/collision lookup remains deterministic.
 function makeRoute(stage, palette) {
   const variant = Number(stage.variant) || 0, points = [new T.Vector3(0,2,0)];
-  const technical=['alps','monte','romania'].includes(stage.region),desert=stage.region==='dakar';
-  const layouts=[
-   [0,.3,-.55,.85,-.8,1.18,-1.18,-.35,.7,-.65,1.21,-1.21,.2,.94,-.95,.4,-.7,.8,-.3,0],
-   [0,-.4,.65,-1.16,1.16,.3,-.8,.85,-.4,1.2,-1.2,-.2,.65,-.8,.9,-.6,.4,-.7,.3,0],
-   [0,.55,-.7,.3,-.9,.95,-.3,1.22,-1.22,-.5,.7,-.85,1.18,-1.18,.2,.8,-.7,.55,-.3,0]
-  ], headings=layouts[variant%3].map(v=>v*(technical?1:desert?.64:.83));
-  const target=Math.max(2500,Math.min(4200,Number(stage.length)||3400)),rand=randomSource(7919+variant*511+stage.region.length*137);
-  const runs=headings.map((_,i)=>i===0?85:105+rand()*100),factor=target/runs.reduce((a,b)=>a+b,0);let x=0,z=0,travel=0;
+  const desert=stage.region==='dakar',design=routeDesign(stage),{headings,runs}=design;
+  const target=Math.max(2500,Math.min(4200,Number(stage.length)||3400));
+  const factor=target/runs.reduce((a,b)=>a+b,0);let x=0,z=0,travel=0;
   for(let i=0;i<headings.length;i++){
-   const run=runs[i]*factor,transition=desert?Math.min(run*.7,85):Math.min(run*.45,technical?42:58);
+   const run=runs[i]*factor,transition=Math.min(run*(desert?.7:.45),design.transition);
    for(let d=0;d<run;d+=4){const step=Math.min(4,run-d),u=T.MathUtils.clamp(d/transition,0,1),blend=u*u*(3-2*u),yaw=T.MathUtils.lerp(headings[Math.max(0,i-1)],headings[i],blend);x+=Math.sin(yaw)*step;z-=Math.cos(yaw)*step;travel+=step;points.push(new T.Vector3(x,0,z))}
   }
   const preview = new T.CatmullRomCurve3(points, false, 'centripetal');
   const scale = target / preview.getLength();
+  const finishZ=points.at(-1).z*scale;
   for (let i=0;i<points.length;i++) {
-    const p=points[i],t=i/(points.length-1),rise=T.MathUtils.smoothstep(t,.025,.975);p.x*=scale;p.z*=scale;
-    p.y = palette.rise * (variant === 1 ? 1-rise : rise) + Math.sin(rise * Math.PI * 4 + variant*.4) * (desert ? 2 : 4) + 2;
+    const p=points[i];p.x*=scale;p.z*=scale;
+    // Height follows longitudinal terrain position, so a tight bend does not
+    // create a sudden cross-road ridge merely because its Z progress slows.
+    const t=p.z/finishZ,rise=T.MathUtils.smoothstep(t,.025,.975);
+    p.y = palette.rise * (design.descending ? 1-rise : rise) + Math.sin(rise * Math.PI * design.waves + design.phase) * (desert ? 2 : 4) + 2;
   }
   const curve = new T.CatmullRomCurve3(points, false, 'centripetal'); curve.arcLengthDivisions = Math.max(6000,points.length*18);
   const samples = curve.getSpacedPoints(Math.ceil(curve.getLength() / 2)), distances = [0];
@@ -309,6 +310,39 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
     obstacles.push({x:p.x,z:p.z,r:Math.max(w,d)*.65});
   }
   root.add(houses,roofs,windows);
+  if(stage.region==='alps'){
+    const banks=new T.InstancedMesh(new T.IcosahedronGeometry(1,1),material(0xe3edf0),140);banks.name='snow-banks';
+    for(let i=0;i<banks.count;i++){
+      const p=roadsidePoint(12+Math.floor(i/banks.count*(samples.length-30)),i%2?1:-1,halfWidth+2.5),s=.75+rand()*.45;
+      instance(banks,i,p.x,heightAt(p.x,p.z)+.20,p.z,1.25*s,.55*s,3*s,p.yaw);
+    }
+    root.add(banks);
+  }
+  if(stage.region==='france'&&stage.variant===1){
+    const vines=new T.InstancedMesh(new T.IcosahedronGeometry(1,0),material(0x52773c),210),stakes=new T.InstancedMesh(new T.BoxGeometry(.09,1.5,.09),material(0x857457),210);vines.name='vineyard-rows';
+    for(let i=0;i<vines.count;i++){
+      const p=roadsidePoint(50+Math.floor(i/3)*7,i%2?1:-1,halfWidth+7+(i%3)*4),y=heightAt(p.x,p.z);
+      instance(vines,i,p.x,y+.80,p.z,.8,.55,1.55,p.yaw);instance(stakes,i,p.x,y+.75,p.z);
+    }
+    root.add(vines,stakes);
+  }
+  if(stage.region==='usa'&&stage.variant===1){
+    const buttes=new T.InstancedMesh(new T.CylinderGeometry(1,1.3,1,7),texturedMaterial(0xb56b45,'rock',211),24);buttes.name='canyon-buttes';
+    for(let i=0;i<buttes.count;i++){
+      const p=roadsidePoint(40+Math.floor(i/(buttes.count-1)*(samples.length-90)),i%2?1:-1,70+(i%4)*18),y=heightAt(p.x,p.z),w=12+rand()*10,h=24+rand()*40;
+      instance(buttes,i,p.x,y+h*.5,p.z,w,h,w*.8,rand()*Math.PI);obstacles.push({x:p.x,z:p.z,r:w*1.3});
+    }
+    root.add(buttes);
+  }
+  if(stage.region==='romania'){
+    const fences=new T.InstancedMesh(new T.BoxGeometry(1,.11,.13),material(0x99846a),84),fencePosts=new T.InstancedMesh(new T.BoxGeometry(.13,1.3,.13),material(0x716352),42);fences.name='carpathian-fences';
+    for(let i=0;i<42;i++){
+      const p=roadsidePoint(30+i*5,i%2?1:-1,halfWidth+9),y=heightAt(p.x,p.z);
+      instance(fencePosts,i,p.x,y+.65,p.z,1,1,1,p.yaw);
+      for(let j=0;j<2;j++)instance(fences,i*2+j,p.x,y+.50+j*.48,p.z,6,1,1,p.yaw+Math.PI/2);
+    }
+    root.add(fences,fencePosts);
+  }
   // A village crossing gives the last French special a distinct urban sector,
   // while preserving its one-way rally format and keeping buildings off-road.
   if(stage.region==='france'&&stage.variant===2){
@@ -349,19 +383,29 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
   }
   const surfaceNote=stage.surface==='snow'?'snow':stage.surface==='sand'?'sand':stage.surface==='broken'?'rough':null;
   const notes=surfaceNote?[{distance:15,text:stage.surfaceLabel,code:surfaceNote}]:[];let lastNote=-100;
-  // Small spectator areas at selected sectors bring the rally service crews
-  // to life. People remain behind the barriers and do not obstruct the road.
-  const peopleCount=90,people=new T.InstancedMesh(new T.CylinderGeometry(.21,.25,.75,8),material(0xffffff),peopleCount),heads=new T.InstancedMesh(new T.SphereGeometry(.16,10,8),material(0xc79d79),peopleCount),legs=new T.InstancedMesh(new T.CylinderGeometry(.095,.09,.65,7),material(0x293b40),peopleCount*2),arms=new T.InstancedMesh(new T.CylinderGeometry(.065,.065,.55,6),material(0x596677),peopleCount*2),cameras=new T.InstancedMesh(new T.BoxGeometry(.25,.15,.14),material(0x20262b),9),lenses=new T.InstancedMesh(new T.CylinderGeometry(.045,.045,.10,8),material(0x637e8a,{metalness:.3}),9);
-  people.name='spectator-jackets';
+  // The crowd is original pixel artwork on eight economical instanced batches.
+  // Road-facing, two-sided planes keep the intended sprite look without 90
+  // independent Sprite draw calls or cylinders masquerading as people.
+  const peopleCount=112,crowdMap=spectatorAtlas(),crowdGroups=Array.from({length:8},()=>[]),photographers=[];
   for(let i=0;i<peopleCount;i++){
-    const gate=2+Math.floor(Math.max(0,i-36)/18)*2,baseIndex=i<36?5+Math.floor(i/2)*2:worldIndex(gate),side=i<36?(i%2?1:-1):1,p=roadsidePoint(baseIndex+(i<36?0:i%6*2),side,halfWidth+2.8+(i%3)*.6),y=heightAt(p.x,p.z);
-    instance(people,i,p.x,y+1.08,p.z,1,1,1,p.yaw);people.setColorAt(i,new T.Color([0xdc6b3e,0xe1d8b1,0x4d7c91,0x72885e][i%4]));instance(heads,i,p.x,y+1.64,p.z);
-    for(const side of [-1,1])instance(legs,i*2+(side>0?1:0),p.x+side*.13,y+.34,p.z,1,1,1,p.yaw);
-    for(const sign of [-1,1]){dummy.position.set(p.x+sign*.24,y+1.20,p.z);dummy.rotation.set(0,p.yaw,sign*.65);dummy.scale.set(1,1,1);dummy.updateMatrix();arms.setMatrixAt(i*2+(sign>0?1:0),dummy.matrix)}
-    if(i<36&&i%4===0){const n=i/4;instance(cameras,n,p.x,y+1.53,p.z,1,1,1,p.yaw+side*Math.PI/2);dummy.position.set(p.x-side*.13,y+1.53,p.z);dummy.rotation.set(0,0,Math.PI/2);dummy.scale.set(1,1,1);dummy.updateMatrix();lenses.setMatrixAt(n,dummy.matrix)}
+    const atStart=i<48,gate=2+Math.floor(Math.max(0,i-48)/22)*2;
+    const baseIndex=atStart?5+Math.floor(i/2)*2:gates[Math.min(8,gate)].index+(i%7)*2;
+    const side=atStart?(i%2?1:-1):(i%3?1:-1),variant=i%8;
+    const p=roadsidePoint(baseIndex,side,halfWidth+2.8+(i%3)*.6),y=heightAt(p.x,p.z),yaw=p.yaw-side*Math.PI/2;
+    crowdGroups[variant].push({...p,y,yaw,scale:.92+(i%5)*.04});
+    if(variant%3===0)photographers.push({...p,y:y+1.38,yaw,phase:(i*.713)%3.7,period:2.4+(i%5)*.31});
   }
-  function worldIndex(gate){return gates[gate].index}
-  cameras.name='start-photographers';root.add(people,heads,legs,arms,cameras,lenses);
+  crowdGroups.forEach((group,variant)=>{
+    const geometry=new T.PlaneGeometry(1.24,1.88).translate(0,.94,0),uv=geometry.attributes.uv;
+    for(let i=0;i<uv.count;i++)uv.setX(i,(variant+uv.getX(i))/8);
+    const people=new T.InstancedMesh(geometry,new T.MeshBasicMaterial({map:crowdMap,alphaTest:.5,side:T.DoubleSide}),group.length);
+    people.name='pixel-spectators';people.userData.pixelVariant=variant;
+    group.forEach((p,i)=>instance(people,i,p.x,p.y,p.z,p.scale,p.scale,p.scale,p.yaw));
+    people.computeBoundingSphere();root.add(people);
+  });
+  const flashes=new T.InstancedMesh(new T.PlaneGeometry(1,1),new T.MeshBasicMaterial({map:flashTexture(),transparent:true,alphaTest:.1,depthWrite:false,side:T.DoubleSide,blending:T.AdditiveBlending,toneMapped:false}),photographers.length);
+  flashes.name='spectator-camera-flashes';flashes.frustumCulled=false;
+  photographers.forEach((p,i)=>instance(flashes,i,p.x,p.y,p.z,0,0,0,p.yaw));root.add(flashes);
   const startRig=new T.Group(),startSample=samples[7];startRig.name='start-light-gantry';startRig.position.copy(startSample);startRig.rotation.y=gates[0].yaw;
   const standMaterial=material(0x1c292d),signalMaterials=[0xe94e39,0xf5bd42,0x6fda62].map(color=>new T.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.02,roughness:.5}));
   for(const sign of [-1,1]){const post=new T.Mesh(new T.CylinderGeometry(.07,.07,4.3,8),standMaterial);post.position.set(sign*(halfWidth+.6),2.15,0);startRig.add(post)}
@@ -370,10 +414,26 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
   signalMaterials.forEach((m,i)=>{const lamp=new T.Mesh(new T.SphereGeometry(.21,12,8),m);lamp.scale.z=.35;lamp.position.set((i-1)*.58,3.8,.14);startRig.add(lamp)});root.add(startRig);
   function setStartLights(number){const phase=number>=3?0:number>0?1:2;signalMaterials.forEach((m,i)=>{m.emissiveIntensity=i===phase?2.5:.01;m.color.setHex(i===phase?[0xe94e39,0xf5bd42,0x6fda62][i]:0x1c292d)})}
   setStartLights(3);
-  if(typeof document!=='undefined'){
-    const c=document.createElement('canvas');c.width=512;c.height=128;const g=c.getContext('2d');g.fillStyle='#e8ebda';g.fillRect(0,0,512,128);g.fillStyle='#20332d';g.font='italic 900 56px sans-serif';g.fillText('HORIZON RALLY',20,78);g.fillStyle='#c7e958';g.fillRect(0,110,512,18);const map=new T.CanvasTexture(c);map.colorSpace=T.SRGBColorSpace;const m=new T.MeshStandardMaterial({map,roughness:.95,side:T.DoubleSide});
-    for(let i=0;i<10;i++){const p=roadsidePoint(9+i*4,i%2?-1:1,halfWidth+1.9),board=new T.Mesh(new T.PlaneGeometry(6,1.5),m);board.position.set(p.x,heightAt(p.x,p.z)+.85,p.z);board.rotation.y=p.yaw+(i%2?1:-1)*Math.PI/2;root.add(board)}
-  }
+  // Fictional sponsors are part of the game's own art, spread over the start,
+  // spectator zones and finish rather than repeating one identical billboard.
+  FICTIONAL_SPONSORS.forEach((sponsor,sponsorIndex)=>{
+    let map=null;
+    if(typeof document!=='undefined'){
+      const c=document.createElement('canvas');c.width=512;c.height=128;const g=c.getContext('2d');
+      g.fillStyle=sponsor.paper;g.fillRect(0,0,512,128);g.fillStyle=sponsor.ink;g.font='italic 900 52px sans-serif';g.fillText(sponsor.name,18,65);
+      g.font='bold 17px monospace';g.fillText(sponsor.tag,22,96);g.fillStyle=sponsor.stripe;g.fillRect(0,111,512,17);
+      map=new T.CanvasTexture(c);map.colorSpace=T.SRGBColorSpace;map.magFilter=T.NearestFilter;
+    }
+    const m=new T.MeshStandardMaterial({map,color:map?0xffffff:new T.Color(sponsor.paper),roughness:.95,side:T.DoubleSide});
+    const boards=new T.InstancedMesh(new T.PlaneGeometry(4.8,1.2),m,5);boards.name='fictional-sponsor';boards.userData.sponsor=sponsor.name;
+    for(let n=0;n<5;n++){
+      const side=(n+sponsorIndex)%2?1:-1;
+      const sample=n<2?9+(sponsorIndex*2+n)*3:n===4?samples.length-26-sponsorIndex*3:gates[n===2?2:6].index+sponsorIndex*4;
+      const p=roadsidePoint(sample,side,halfWidth+2.05);
+      instance(boards,n,p.x,heightAt(p.x,p.z)+.75,p.z,1,1,1,p.yaw-side*Math.PI/2);
+    }
+    boards.computeBoundingSphere();root.add(boards);
+  });
   for(let i=30;i<samples.length-35;i+=8) {
     if(distances[i]>length-200)break;
     if(distances[i]-lastNote<105)continue;
@@ -396,6 +456,12 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
   }
   function update(dt,carPosition,elapsed=0) {
     if(skyDome&&carPosition)skyDome.position.copy(carPosition);
+    photographers.forEach((p,i)=>{
+      const nearby=carPosition&&Math.hypot(p.x-carPosition.x,p.z-carPosition.z)<48;
+      const active=nearby&&(elapsed+p.phase)%p.period<.085,size=active?.65:0;
+      instance(flashes,i,p.x,p.y,p.z,size,size,size,p.yaw);
+    });
+    flashes.instanceMatrix.needsUpdate=true;
     if(precipitation&&carPosition) {
       precipitation.position.set(carPosition.x,carPosition.y??heightAt(carPosition.x,carPosition.z),carPosition.z);
       const fall=kind==='snow'?3.2:23;

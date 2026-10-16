@@ -34,22 +34,25 @@ not separate authentic recordings of every selectable real-world car.
 Full CC0 text is in CC0-1.0.txt:
   https://creativecommons.org/publicdomain/zero/1.0/legalcode
 
-Version 6 French and German neural speech
------------------------------------------
-The data URLs in notes-data.js (FR) and international-data.js (DE) are newly
-generated neural speech using Piper Siwis (FR) and Thorsten (DE). They are
-not human recordings. Exact model cards, dataset authors, licenses and
-reproduction steps are in NEURAL-VOICES.md. French generated audio is
-redistributed with SIWIS attribution under CC BY 4.0; German generated audio
-is offered under CC0. No speech model or synthesis executable is bundled.
-The old note-*.ogg files remain MIT eSpeak-generated legacy assets; they
-are not selected for French playback in version 6.
+Version 7 offline neural speech (FR / DE / EN)
+--------------------------------------------
+The data URLs in notes-data.js (FR) and international-data.js (DE) are
+neural speech generated using Piper Siwis (FR) and Thorsten (DE). English
+numeric turns, start-light numbers, GO, crash reactions and legacy eSpeak
+supplements now use Piper LJ Speech. They are not human recordings.
+Exact model cards, dataset authors, licenses, source URLs and reproduction
+steps are in NEURAL-VOICES.md. French generated audio is redistributed with
+SIWIS attribution under CC BY 4.0. German and English generated clips are
+offered under CC0. The LJ Speech corpus is public domain according to its
+model card. No speech model or synthesis executable is bundled.
+The old note-*.ogg files remain MIT eSpeak-generated legacy assets and are
+not selected by the default language packs in version 7.
 
-English copilot
-----------------
-The eight supplementary English cues remain MIT eSpeak-generated speech.
-22 English cues use recorded words from Trigger Rally's AB voice pack.
-Author: Andrei Bondor.
+English recorded copilot cues
+----------------------------
+Ten nonnumeric English cues use recorded words from Trigger Rally's AB
+voice pack. The other 26 English cues are explicitly marked neural.
+Recorded voice author: Andrei Bondor.
 License: GPL version 2 or, at your option, any later version.
 Upstream: Trigger Rally 0.6.6.1, data/sounds/codriver/ab/*.wav.
 Source distribution:
@@ -60,21 +63,22 @@ Explicit per-file upstream attribution:
  Andrei Bondor
      sounds/codriver/ab/* (GPL)
 
-The 15 unmodified source WAVs used are in english-source/: Hairpin, Hard,
-Square, Medium, Easy, Flat, Left, Right, Finish, Jump, Dont, Cut, Snow, Sand,
-and Dirt. Those WAVs are included with the game, and in the source repository:
+The 15 unmodified source WAVs from earlier editions are preserved in
+english-source/: Hairpin, Hard, Square, Medium, Easy, Flat, Left, Right,
+Finish, Jump, Dont, Cut, Snow, Sand, and Dirt. The Hard / Square / Medium /
+Easy recordings are no longer used to approximate numbered notes.
+Source repository:
  https://github.com/REDCATUSER/REDCATUSER/tree/main/src/audio/english-source
-Playback derivatives join the recorded words, normalize/filter volume and
-encode mono 22.05 kHz Vorbis. They remain GPL-2.0-or-later. The full GPL v2
-license is in GPL-2.0.txt, and in the embedded third-party notices.
+Recorded playback derivatives join the matching words, normalize/filter
+volume and encode mono 22.05 kHz Vorbis. They remain GPL-2.0-or-later.
+The full GPL v2 license is in GPL-2.0.txt and embedded third-party notices.
 These independently licensed sound assets are aggregated with the MIT game.
 The source asset license does not claim ownership of the original speakers.
 
-Difficulty mapping (1 = tightest, 6 = fastest):
- 1 Hairpin, 2 Hard, 3 Square, 4 Medium, 5 Easy, 6 Flat, then Left or Right.
-There are no authentic French or German human recordings in the default
-build. The settings UI labels their synthetic origin and accepts authorized
-local voice packs. Imported packs keep the author's own declared license.
+The default build contains no authentic French or German human recordings.
+The settings UI labels voice origin and accepts authorized local voice packs.
+Imported packs keep their author's own declared license. Numeric turns use
+1 for the tightest bend through 6 for the fastest bend in all three languages.
 
 Music
 -----

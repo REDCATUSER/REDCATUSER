@@ -24,3 +24,19 @@ test('malformed settings are bounded and conflicting keys cannot trigger two act
  assert.deepEqual(s.bindings.throttle,['KeyH']);assert.deepEqual(s.bindings.headlights,[]);assert.equal(normalizeSettings(null).camera,0);
  const b=normalizeBindings({throttle:['KeyI','KeyJ','KeyK','KeyL'],headlights:['KeyL']});assert.deepEqual(b.headlights,['KeyL']);
 });
+
+test('difficulty migrates older AI settings and keeps explicit free-sprint assist tuning',()=>{
+ assert.equal(normalizeSettings().difficulty,'medium');
+ assert.equal(normalizeSettings({ai:'casual'}).difficulty,'easy');
+ assert.equal(normalizeSettings({ai:'pro'}).difficulty,'hard');
+ assert.equal(normalizeSettings({difficulty:'hardcore',ai:'casual'}).difficulty,'hardcore');
+ assert.equal(normalizeSettings({difficulty:'hardcore'}).assist,'expert');
+ assert.equal(normalizeSettings({difficulty:'easy',assist:'expert'}).assist,'expert');
+ let saved;const career=createCareer({getItem:()=>saved,setItem:(key,value)=>saved=value});
+ career.setSettings({difficulty:'superEasy'});assert.equal(career.data.settings.assist,'comfort');
+ career.setSettings({assist:'expert'});assert.equal(career.data.settings.difficulty,'superEasy');
+ career.setSettings({difficulty:'hard'});assert.equal(career.data.settings.assist,'expert');
+ career.setSettings({ai:'casual'});assert.equal(career.data.settings.difficulty,'easy');assert.equal(career.data.settings.assist,'comfort');
+ career.setSettings({difficulty:'hardcore',assist:'sport'});
+ const loaded=createCareer(career.storage);assert.equal(loaded.data.settings.difficulty,'hardcore');assert.equal(loaded.data.settings.assist,'sport');
+});

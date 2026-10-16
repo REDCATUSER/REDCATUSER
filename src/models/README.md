@@ -1,14 +1,18 @@
-# Modèles texturés de rallye
+# Voitures rétro : silhouettes originales
 
-Trois carrosseries communautaires de Trigger Rally 0.6.6.1 sont utilisées comme interprétations visuelles de la berline Club, de la RS et de la compacte Integrale. Elles ne constituent pas des reproductions officielles des constructeurs mentionnés dans le jeu.
+Les six voitures affichées dans la version 7 sont créées dans le projet. `app/vehicle-assets.js` contient leurs profils de carrosserie ; `app/car.js` construit les surfaces, arches ouvertes, roues, livrées pixelisées et habitacles. Les proportions et équipements varient entre compacte, berlinette, berline deux portes, hatchback, coupé fastback et coupé Groupe B. Chaque voiture possède son propre tableau de bord et un volant animé. Ces interprétations rétro ne sont pas des modèles officiels des constructeurs mentionnés dans le jeu.
+
+Les peintures, numéros, marques fictives, matériaux de l'habitacle et cadrans sont dessinés localement. Aucun modèle distant n'est nécessaire. Ces créations originales et leur code sont sous la licence MIT du projet.
+
+## Archives des anciens modèles communautaires
+
+Les trois carrosseries de Trigger Rally 0.6.6.1 employées dans la version 6 restent archivées dans `source/` ; elles ne sont plus affichées dans le jeu actuel.
 
 - Maillages OBJ et MTL : Richard Langridge, Farrer, Iwan Gabovitch, **GPL-2.0-or-later**.
 - Textures de carrosserie : Onsemeliot, **GPL-2.0-or-later**.
 - Sources et attributions exactes : `source/`, dont `AUTHORS.txt` et `GPL-2.0.txt`.
 - Source amont : https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally_0.6.6.1.orig.tar.gz et https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally-data_0.6.6.1-4_all.deb .
 
-`app/vehicle-assets.js` adapte les axes, dimensions et normales, recolore la peinture et applique les déformations d’impact. Les fichiers originaux sont conservés sans modification. Les roues, habitacles et autres carrosseries sont développés dans le projet. Le HTML autonome inclut aussi les originaux dans le bloc JSON `modelSources` encodé en base64. Les modèles et textures GPL restent sous leur licence ; le code indépendant du jeu reste MIT.
+Ces originaux sont conservés sans modification. `vehicles-data.js` en est une ancienne copie embarquée (OBJ et PNG en data URL), non importée par le moteur de la version 7. Le HTML autonome conserve également les originaux dans son bloc JSON `modelSources` en base64. Ces archives et leurs textures restent sous GPL-2.0-or-later ; leur présence ne change pas la licence du code indépendant ni des nouvelles carrosseries originales.
 
-Les fichiers `vehicles-data.js` regroupent le texte OBJ des carrosseries et roues ainsi que les PNG originaux en data URL, sans chargement réseau. Les sources complètes sont la référence.
-
-Regénération du fichier embarqué : `node scripts/generate-model-data.mjs`.
+Pour régénérer l'archive embarquée : `node scripts/generate-model-data.mjs`.

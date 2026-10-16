@@ -1,19 +1,11 @@
-import * as T from 'three';
-import {OBJLoader} from 'three/addons/loaders/OBJLoader.js';
-import {mergeVertices} from 'three/addons/utils/BufferGeometryUtils.js';
-import {VEHICLE_ASSETS} from '../src/models/vehicles-data.js';
-const loader=new OBJLoader();
-const selections={club:'evo',escort:'cordo',delta:'fox'};
-export const assetFor=id=>selections[id];
-export function assetBody(id,{length,width,roof},onChange){
- const source=VEHICLE_ASSETS[selections[id]],object=loader.parse(source.obj),bounds=new T.Box3().setFromObject(object),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3());
- const material=new T.MeshStandardMaterial({roughness:.55,metalness:.12}),image=typeof Image!=='undefined'?new Image():null;let color='#4088d8',disposed=false;
- const texture=new T.Texture();texture.colorSpace=T.SRGBColorSpace;texture.anisotropy=4;if(image)material.map=texture;
- function paint(next=color){if(next===color&&texture.image)return;color=next;if(!image?.complete||!image.naturalWidth||disposed)return;const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');g.drawImage(image,0,0,512,512);const pixels=g.getImageData(0,0,512,512),target=new T.Color(color),srgb=target.clone().convertLinearToSRGB();
-  for(let i=0;i<pixels.data.length;i+=4){const r=pixels.data[i],gg=pixels.data[i+1],b=pixels.data[i+2],blue=b>r*1.3&&b>gg*1.25&&b>45,gold=id==='delta'&&r>b*1.6&&gg>b*1.5&&Math.abs(r-gg)<65,brown=id==='escort'&&r>gg*1.4&&gg>b*1.5&&gg>25&&r<190;if(blue||gold||brown){const light=Math.max(.12,Math.max(r,gg,b)/255);pixels.data[i]=srgb.r*255*light;pixels.data[i+1]=srgb.g*255*light;pixels.data[i+2]=srgb.b*255*light}}
-  g.putImageData(pixels,0,0);texture.image=c;texture.needsUpdate=true;onChange?.();
- }
- if(image){image.onload=()=>paint();image.src=source.map;}
- object.traverse(o=>{if(!o.isMesh)return;const p=o.geometry.attributes.position,n=o.geometry.attributes.normal;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i);p.setXYZ(i,(x-center.x)/size.x*width,(z-bounds.min.z)/size.z*(roof-.30)+.30,-(y-center.y)/size.y*length);if(n){const nx=n.getX(i),ny=n.getY(i),nz=n.getZ(i);n.setXYZ(i,nx,nz,-ny)}}o.geometry.deleteAttribute('normal');const old=o.geometry;o.geometry=mergeVertices(old);old.dispose();o.geometry.computeVertexNormals();o.geometry.computeBoundingSphere();o.material=material;o.castShadow=true;o.receiveShadow=true;o.name='artist-rally-body';});
- return{object,material,paint,dispose(){disposed=true;if(image)image.onload=null;texture.dispose()}};
-}
+// Original silhouette blueprints, authored for Rally Horizon. Units are metres.
+// All six cars share the same construction quality, with their own proportions,
+// roof line, panel curvature, dashboard and wheel design. No remote assets.
+export const VEHICLE_SHAPES = {
+  club: { kind:'hot-hatch', bonnet:.98, nose:.79, tail:.98, frontBase:-.77, frontRoof:-.43, rearRoof:.99, rearBase:1.62, roofWidth:.365, shoulder:.94, roundness:.10, noseTaper:.15, rearTaper:.07, rim:'six', spokes:6, number:'16', cockpit:'digital-club', dashboard:'#202e3a', instrument:'#96e6dd', trim:'#ef583e', gauges:'digital', vents:'round', wheelSpokes:3 },
+  alpine: { kind:'rear-engine-berlinette', bonnet:.86, nose:.66, tail:.88, frontBase:-.66, frontRoof:-.24, rearRoof:.51, rearBase:1.38, roofWidth:.34, shoulder:.82, roundness:.16, noseTaper:.23, rearTaper:.18, rim:'silver', spokes:8, number:'11', cockpit:'blue-twin-dial', dashboard:'#172a3a', instrument:'#f6e6bb', trim:'#347cae', gauges:'twin', vents:'round', wheelSpokes:3 },
+  escort: { kind:'two-door-saloon', bonnet:1.00, nose:.90, tail:.98, frontBase:-.71, frontRoof:-.36, rearRoof:.60, rearBase:1.12, roofWidth:.365, shoulder:.98, roundness:.055, noseTaper:.06, rearTaper:.07, rim:'gold', spokes:8, number:'8', cockpit:'wood-six-clock', dashboard:'#302c2b', instrument:'#f7f0d4', trim:'#8c603d', gauges:'six', vents:'square', wheelSpokes:2 },
+  delta: { kind:'upright-hatch', bonnet:1.01, nose:.92, tail:1.04, frontBase:-.79, frontRoof:-.43, rearRoof:1.10, rearBase:1.57, roofWidth:.395, shoulder:.97, roundness:.05, noseTaper:.05, rearTaper:.03, rim:'white', spokes:6, number:'4', cockpit:'italian-square', dashboard:'#252327', instrument:'#ffb24b', trim:'#a82d35', gauges:'square', vents:'square', wheelSpokes:4 },
+  celica: { kind:'fastback-coupe', bonnet:.99, nose:.75, tail:.94, frontBase:-.82, frontRoof:-.23, rearRoof:.49, rearBase:1.58, roofWidth:.355, shoulder:.91, roundness:.19, noseTaper:.24, rearTaper:.15, rim:'white', spokes:5, number:'3', cockpit:'japanese-triple', dashboard:'#1b2432', instrument:'#96d9ae', trim:'#e84b44', gauges:'triple', vents:'oval', wheelSpokes:3 },
+  quattro: { kind:'flared-coupe', bonnet:1.04, nose:.94, tail:1.01, frontBase:-.76, frontRoof:-.38, rearRoof:.75, rearBase:1.42, roofWidth:.37, shoulder:1.00, roundness:.065, noseTaper:.07, rearTaper:.05, rim:'white', spokes:6, number:'1', cockpit:'group-b-competition', dashboard:'#2b2926', instrument:'#e5ca7d', trim:'#b4342e', gauges:'group-b', vents:'square', wheelSpokes:3 },
+};

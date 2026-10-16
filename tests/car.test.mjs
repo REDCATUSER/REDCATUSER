@@ -69,3 +69,23 @@ test('headlights start off, illuminate the road and can be switched off again', 
   assert.ok(scene.getObjectsByProperty('isSpotLight', true).every(light => !light.visible && light.intensity === 0));
   car.dispose();
 });
+
+test('six original silhouettes and six cockpit layouts use inset tyres at the arches',()=>{
+ const car=createCar(new T.Scene()),silhouettes=new Set(),cockpits=new Set(),geometries=new Set();
+ for(const id of ['club','alpine','escort','delta','celica','quattro']){
+  car.setConfig({id});car.update({cameraMode:0});
+  silhouettes.add(car.silhouette);cockpits.add(car.cockpitStyle);
+  assert.equal(car.inside.userData.cockpitStyle,car.cockpitStyle);
+  const profileWidth={club:1.78,alpine:1.8,escort:1.8,delta:1.86,celica:1.87,quattro:1.9}[id];
+  for(const wheel of car.wheels){
+   assert.ok(Math.abs(wheel.pivot.position.x)+.123<=profileWidth/2+.001,`${id} tyre protrudes beyond its fender`);
+   assert.ok(Math.abs(wheel.pivot.position.x)+.123>profileWidth/2-.05,`${id} tyre is buried inside the body`);
+   assert.ok(wheel.pivot.position.y>.33&&wheel.pivot.position.y<.38,`${id} wheel no longer sits on the ground`);
+  }
+  const meshes=[];car.exterior.traverse(o=>{if(o.isMesh&&o.material.color?.getHexString()!=='171d23')meshes.push(o.geometry.attributes.position.array)});
+  geometries.add(meshes.map(a=>`${a.length}:${Array.from(a.slice(0,24)).map(x=>x.toFixed(3)).join(',')}`).join('|'));
+  car.update({cameraMode:2,gear:0,rpm:5600});assert.equal(car.inside.visible,true);
+ }
+ assert.equal(silhouettes.size,6);assert.equal(cockpits.size,6);assert.equal(geometries.size,6,'body geometry must vary beyond badges and colour');
+ car.dispose();
+});

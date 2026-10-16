@@ -41,7 +41,7 @@ window.__raceCheck={
   await wait(()=>window.rallyState);
   assert.equal(await page.evaluate(()=>rallyState.mode),'menu');
   await page.waitForTimeout(300);const idleFrames=await page.evaluate(()=>rallyState.renderFrames);await page.waitForTimeout(400);assert.ok(await page.evaluate(()=>rallyState.renderFrames)<=idleFrames+1,'idle menu must stop rendering');
-  if(process.env.RALLY_CAPTURE)await page.screenshot({path:'/tmp/rally-v6-menu.png'});
+  if(process.env.RALLY_CAPTURE)await page.screenshot({path:'/tmp/rally-v7-menu.png'});
   assert.equal(await page.locator('#hud').isVisible(),false);
   assert.equal(await page.locator('#heroPreview #game').count(),1);await page.click('#helpButton');assert.equal(await page.locator('#helpOverlay').isVisible(),true);await page.click('#closeHelp');
   assert.equal(await page.locator('#championships button').count(),5);
@@ -50,12 +50,22 @@ window.__raceCheck={
   await page.locator('#manual').check();await page.selectOption('#quality','low');await page.selectOption('#cameraSetting','2');
   await page.locator('[data-tab=garage]').click();await page.selectOption('#tires','snow');
   assert.equal(await page.locator('#game').isVisible(),true);
-  await page.locator('[data-tab=free]').click();await start('#start');
-  assert.equal(await page.evaluate(()=>rallyState.mode),'countdown');assert.equal(await page.evaluate(()=>rallyState.startPhase),'red');await page.keyboard.down('ArrowUp');await wait(()=>rallyState.startPhase==='amber');assert.equal(await page.evaluate(()=>rallyState.speed),0);await wait(()=>rallyState.mode==='race'&&rallyState.speed>2);await page.keyboard.up('ArrowUp');assert.equal(await page.evaluate(()=>rallyState.startPhase),'green');
+  await page.locator('[data-tab=free]').click();
+  await page.evaluate(()=>{window.startPhases=new Set();new MutationObserver(()=>startPhases.add(document.querySelector('#startSignals').dataset.phase)).observe(document.querySelector('#startSignals'),{attributes:true,attributeFilter:['data-phase']})});
+  await start('#start');
+  assert.equal(await page.evaluate(()=>rallyState.mode),'countdown');
+  assert.equal(await page.evaluate(()=>rallyState.gear),0);
+  await page.keyboard.down('ArrowUp');await wait(()=>rallyState.rpm>2500);
+  assert.equal(await page.evaluate(()=>rallyState.speed),0,'neutral revs without moving');
+  await wait(()=>rallyState.mode==='race');
+  assert.equal(await page.evaluate(()=>rallyState.speed),0,'neutral still prevents drive after green');
+  assert.deepEqual(await page.evaluate(()=>[...startPhases]),['red','amber','green']);
+  await page.keyboard.press('ShiftLeft');await wait(()=>rallyState.gear===1&&rallyState.speed>2);
+  await page.keyboard.up('ArrowUp');
   await wait(()=>rallyState.audio&&rallyState.audioLevel>.001&&__raceCheck.voiceReady());
   assert.equal(await page.evaluate(()=>rallyState.visibleWheels),0);assert.equal(await page.evaluate(()=>rallyState.fov),82);
   await wait(()=>rallyState.musicReady);assert.equal(await page.evaluate(()=>rallyState.musicLevel),0,'no music during driving');
-  if(process.env.RALLY_CAPTURE)await page.screenshot({path:'/tmp/rally-v6-cockpit.png'});
+  if(process.env.RALLY_CAPTURE)await page.screenshot({path:'/tmp/rally-v7-cockpit.png'});
   const local=await page.evaluate(()=>rallyState.cameraLocal);
   await page.evaluate(()=>__raceCheck.placeOnRoad(80));await page.waitForTimeout(100);
   const moved=await page.evaluate(()=>rallyState.cameraLocal);
@@ -98,11 +108,11 @@ window.__raceCheck={
   await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>rallyState.damage),0);
   await page.click('#resume');await page.evaluate(()=>__raceCheck.skipCountdown());
   await page.evaluate(()=>__raceCheck.impact());assert.ok(await page.evaluate(()=>rallyState.damage>0));
-  if(process.env.RALLY_CAPTURE)await page.screenshot({path:'/tmp/rally-v6-damaged.png'});await page.evaluate(()=>__raceCheck.impact(true));assert.equal(await page.evaluate(()=>rallyState.mode),'wrecked');assert.equal(await page.locator('#wreckedMenu').isVisible(),true);const wreckTime=await page.evaluate(()=>rallyState.elapsed);await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>rallyState.elapsed),wreckTime);await page.click('#wreckRestart');assert.equal(await page.evaluate(()=>rallyState.damage),0);
+  if(process.env.RALLY_CAPTURE)await page.screenshot({path:'/tmp/rally-v7-damaged.png'});await page.evaluate(()=>__raceCheck.impact(true));assert.equal(await page.evaluate(()=>rallyState.mode),'wrecked');assert.equal(await page.locator('#wreckedMenu').isVisible(),true);const wreckTime=await page.evaluate(()=>rallyState.elapsed);await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>rallyState.elapsed),wreckTime);await page.click('#wreckRestart');assert.equal(await page.evaluate(()=>rallyState.damage),0);
   await page.keyboard.press('Escape');await page.click('#restart');await page.evaluate(()=>__raceCheck.seedGhost());
   await page.keyboard.press('Escape');await page.click('#restart');await wait(()=>rallyState.ghostReady);
   await page.evaluate(()=>{__raceCheck.skipCountdown();window.testPad={connected:true,mapping:'standard',axes:[0,0],buttons:Array.from({length:16},()=>({value:0}))};Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[window.testPad]})});
-  await wait(()=>rallyState.controller);await page.evaluate(()=>{testPad.axes[0]=.45;testPad.buttons[7].value=.7});
+  await page.keyboard.press('PageUp');await wait(()=>rallyState.gear===1&&rallyState.shift===0);await wait(()=>rallyState.controller);await page.evaluate(()=>{testPad.axes[0]=.45;testPad.buttons[7].value=.7});
   await wait(()=>rallyState.controller&&rallyState.speed>1&&rallyState.steer>.1);await wait(()=>rallyState.ghostVisible);
   await page.evaluate(()=>testPad.connected=false);await wait(()=>rallyState.mode==='paused');await page.evaluate(()=>Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[]}));
   await page.click('#quit');await page.locator('[data-tab=championship]').click();await start('#startChampionship');
@@ -124,11 +134,36 @@ window.__raceCheck={
   assert.equal(await page.evaluate(()=>rallyState.career.unlockedCars.length),6);
   await page.locator('[data-tab=garage]').click();await page.locator('[data-car=quattro]').click();
   assert.equal(await page.evaluate(()=>rallyState.career.selectedCar),'quattro');
-  if(process.env.RALLY_CAPTURE){await page.locator('[data-tab=options]').click();await page.selectOption('#quality','medium');await page.locator('[data-tab=garage]').click();await page.screenshot({path:'/tmp/rally-v6-garage.png'})}
+  if(process.env.RALLY_CAPTURE){await page.locator('[data-tab=options]').click();await page.selectOption('#quality','medium');await page.locator('[data-tab=garage]').click();await page.screenshot({path:'/tmp/rally-v7-garage.png'})}
   await page.reload();await wait(()=>window.rallyState);assert.equal(await page.evaluate(()=>rallyState.career.selectedCar),'quattro');
   assert.equal(await page.evaluate(()=>rallyState.career.settings.bindings.shiftUp[0]),'PageUp');assert.equal(await page.evaluate(()=>rallyState.career.settings.textureQuality),'high');
+  // Hardcore: only the real timed stage may affect records or championship scores.
+  await page.locator('[data-tab=options]').click();
+  assert.equal(await page.locator('#difficulty option').count(),5);
+  await page.selectOption('#difficulty','hardcore');
+  await page.locator('[data-tab=championship]').click();
+  await page.locator('[data-championship=alps]').click();await start('#startChampionship');
+  assert.equal(await page.evaluate(()=>rallyState.reconnaissance),true);
+  assert.equal(await page.locator('#map').isVisible(),false);assert.equal(await page.locator('#paceNote').isVisible(),false);
+  assert.equal(await page.locator('#reconBanner').isVisible(),true);
+  const beforeRecon=await page.evaluate(()=>JSON.stringify({records:rallyState.career.records,sectors:rallyState.career.sectors,cars:rallyState.career.unlockedCars}));
+  await page.evaluate(()=>__raceCheck.finish(150));
+  assert.equal(await page.evaluate(()=>rallyState.career.active.playerTimes.length),0);
+  assert.equal(await page.evaluate(()=>JSON.stringify({records:rallyState.career.records,sectors:rallyState.career.sectors,cars:rallyState.career.unlockedCars})),beforeRecon);
+  assert.equal(await page.locator('#reconActions').isVisible(),true);assert.equal(await page.locator('#standings tbody tr').count(),0);
+  await page.click('#reconAgain');assert.equal(await page.evaluate(()=>rallyState.reconnaissance),true);
+  await page.evaluate(()=>__raceCheck.finish(155));await page.click('#reconRace');
+  assert.equal(await page.evaluate(()=>rallyState.reconnaissance),false);
+  assert.equal(await page.locator('#map').isVisible(),true);assert.equal(await page.locator('#paceNote').isVisible(),true);
+  // Restart keeps the chosen timed phase; leaving/resuming requires blind recon again.
+  await page.keyboard.press('Escape');await page.click('#restart');assert.equal(await page.evaluate(()=>rallyState.reconnaissance),false);
+  await page.evaluate(()=>__raceCheck.finish(140));assert.equal(await page.evaluate(()=>rallyState.career.active.playerTimes.length),1);
+  await start('#continue');assert.equal(await page.evaluate(()=>rallyState.reconnaissance),true);
+  await page.keyboard.press('Escape');await page.click('#quit');await page.reload();await wait(()=>window.rallyState);
+  await start('#startChampionship');assert.equal(await page.evaluate(()=>rallyState.reconnaissance),true);
+  await page.keyboard.press('Escape');await page.click('#quit');
   assert.deepEqual(errors,[]);
-  console.log('PASS browser: idle menu, pre-race preparation, garage/settings, countdown lights, rigid cameras, Shift/Ctrl, lights, audio/voice, checkpoints, pause, free/career resume, all rewards, pause settings/restart, independent audio buses, render resolution, fullscreen, high textures, key conflicts/remapping, FR/EN/DE and voice import, medals/sectors, ghost storage/playback, visible collision damage and critical retirement, silent racing music bus, analog gamepad and safe disconnect.');
+  console.log('PASS browser: five difficulties, N free-rev and launch, Hardcore blind/repeat/timed/restart/resume with no recon scores, idle menu, pre-race preparation, garage/settings, countdown lights, rigid cameras, Shift/Ctrl, lights, audio/voice, checkpoints, pause, free/career resume, all rewards, pause settings/restart, independent audio buses, render resolution, fullscreen, high textures, key conflicts/remapping, FR/EN/DE and voice import, medals/sectors, ghost storage/playback, visible collision damage and critical retirement, silent racing music bus, analog gamepad and safe disconnect.');
   console.log('Career finish checks use controlled checkpoint placements, not a complete physical driving test.');
  }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(e=>{console.error(e);if(process.env.GITHUB_ACTIONS)console.error('::error::'+String(e.message).replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A'));process.exit(1)});

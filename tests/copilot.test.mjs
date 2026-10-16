@@ -47,3 +47,37 @@ test('audio decoding and pauses do not consume an upcoming cue',()=>{
  assert.equal(copilot.cursor,0);
  copilot.update(70,20,false);assert.equal(copilot.cursor,0);
 });
+
+function scheduledCopilot(){
+ const created=[];
+ const context={currentTime:0,createGain:()=>({gain:{value:1},connect(){return this},disconnect(){}}),createBufferSource(){
+  const source={connect(){return this},disconnect(){},stop(){this.stopped=true},start(...args){this.startArgs=args}};created.push(source);return source;
+ }};
+ const copilot=new Copilot({context});copilot.ready=true;copilot.master={gain:{setValueAtTime(){}}};
+ copilot.buffers=new Map(['count3','count2','count1','go','crash1','crash2'].map(code=>[code,{duration:code.startsWith('crash')?2.1:1.8,code}]));
+ return{copilot,context,created};
+}
+
+test('start-light speech interrupts stale clips and never queues after GO',()=>{
+ const {copilot,context,created}=scheduledCopilot();
+ assert.equal(copilot.countdown(3),true);assert.equal(copilot.countdown(3),false);assert.equal(created.length,1);
+ assert.deepEqual(created[0].startArgs,[.008,0,.87]);
+ for(const number of [2,1,0]){
+  context.currentTime++;
+  assert.equal(copilot.countdown(number),true);assert.equal(copilot.sources.size,1);
+  assert.equal(created.at(-2).stopped,true);assert.equal(created.at(-1).buffer.code,number?'count'+number:'go');
+  assert.equal(created.at(-1).startArgs[0],context.currentTime+.008);
+ }
+ assert.equal(created.at(-1).startArgs[2],1.1);
+ copilot.reset([]);assert.equal(copilot.countdown(3),true);
+});
+
+test('a not-yet-decoded countdown is retriable and crash dialogue is rate limited',()=>{
+ const {copilot,context,created}=scheduledCopilot();
+ copilot.ready=false;assert.equal(copilot.countdown(3),false);assert.equal(copilot.lastCountdown,null);
+ copilot.ready=true;assert.equal(copilot.countdown(3),true);
+ assert.equal(copilot.crash(.1),false);assert.equal(copilot.crash(.5),true);assert.equal(created.at(-1).buffer.code,'crash1');
+ context.currentTime=5;assert.equal(copilot.crash(1),false);
+ assert.equal(copilot.crash(1,{force:true}),true);assert.equal(created.at(-1).buffer.code,'crash2');assert.equal(copilot.sources.size,1);
+ context.currentTime=18;assert.equal(copilot.crash(.5),true);assert.equal(created.at(-1).buffer.code,'crash1');
+});

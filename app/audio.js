@@ -112,7 +112,10 @@ export class RallyAudio{
  update(state,active,camera=0){
   if(!this.ready)return;
   const c=this.ctx,now=c.currentTime,rpm=clamp(finite(state.rpm,950),600,10000),speed=Math.abs(finite(state.speed)),throttle=clamp(finite(state.throttle),0,1),side=Math.abs(finite(state.side));
-  const shift=finite(state.shiftRemaining)>0||now<this.shiftUntil,load=shift?throttle*.05:clamp(finite(state.engineLoad,throttle),0,1),interior=camera===2;
+  // Neutral is free-revving with little drivetrain load; reverse keeps the same
+  // RPM-based recorded engine instead of treating its negative gear as a downshift.
+  const neutral=state.gear===0,reverse=state.gear===-1;
+  const shift=finite(state.shiftRemaining)>0||now<this.shiftUntil,load=shift?throttle*.05:clamp(finite(state.engineLoad,throttle)*(neutral?.40:reverse?.78:1),0,1),interior=camera===2;
   this.smooth(this.engineBus.gain,this.engineVolume,.035);this.smooth(this.effectsBus.gain,this.effectsVolume,.035);
   this.smooth(this.master.gain,this.enabled&&active?clamp(this.volume,0,1)*clamp(this.duck,0,1)*.78:0,.065);
   this.smooth(this.recorded.playbackRate,clamp(rpm/this.car.sampleRPM*(this.car.cylinders/4),.25,3.8),shift?.018:.045);
@@ -138,9 +141,10 @@ export class RallyAudio{
  }
  shiftSound(from,to,rpm=4000){
   if(!this.ready)return;
-  const c=this.ctx,source=c.createBufferSource(),gain=c.createGain();source.buffer=this.gearBuffer;gain.gain.value=.21;source.playbackRate.value=to>from?1.05:.9;source.connect(gain).connect(this.effectsBus);source.start();source.onended=()=>{source.disconnect();gain.disconnect()};
-  if(to>from&&rpm>4200){this.exhaustPop(.09);if(this.car.turbo)this.blowoff(.10)}
-  if(to<from){const blip=c.createOscillator(),g=c.createGain(),t=c.currentTime;blip.type='triangle';blip.frequency.setValueAtTime(rpm/30,t);blip.frequency.exponentialRampToValueAtTime(rpm/23,t+.045);blip.frequency.exponentialRampToValueAtTime(rpm/30,t+.14);g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.055,t+.018);g.gain.exponentialRampToValueAtTime(.001,t+.16);blip.connect(g).connect(this.engineBus);blip.start();blip.stop(t+.17);blip.onended=()=>{blip.disconnect();g.disconnect()}}
+  const drivingShift=from>0&&to>0;
+  const c=this.ctx,source=c.createBufferSource(),gain=c.createGain();source.buffer=this.gearBuffer;gain.gain.value=drivingShift?.21:.14;source.playbackRate.value=drivingShift?(to>from?1.05:.9):.78;source.connect(gain).connect(this.effectsBus);source.start();source.onended=()=>{source.disconnect();gain.disconnect()};
+  if(drivingShift&&to>from&&rpm>4200){this.exhaustPop(.09);if(this.car.turbo)this.blowoff(.10)}
+  if(drivingShift&&to<from){const blip=c.createOscillator(),g=c.createGain(),t=c.currentTime;blip.type='triangle';blip.frequency.setValueAtTime(rpm/30,t);blip.frequency.exponentialRampToValueAtTime(rpm/23,t+.045);blip.frequency.exponentialRampToValueAtTime(rpm/30,t+.14);g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.055,t+.018);g.gain.exponentialRampToValueAtTime(.001,t+.16);blip.connect(g).connect(this.engineBus);blip.start();blip.stop(t+.17);blip.onended=()=>{blip.disconnect();g.disconnect()}}
  }
  click(){this.shiftSound(this.lastGear||1,(this.lastGear||1)+1)}
  countdown(final=false){

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from 'three';
-import { stages, makeWorld } from '../app/world.js';
+import { stages, makeWorld, getStagePreview } from '../app/world.js';
 
 for (let i = 0; i < stages.length; i++) test(`${stages[i].name}: open sprint, ordered checkpoints and consistent tire contact`, () => {
   const scene = new T.Scene(), world = makeWorld(scene, stages[i], i);
@@ -67,3 +67,39 @@ test('road surfaces and weather distinguish the six regions without a browser', 
 });
 
 test('technical routes contain linked hairpins rather than long gentle sine waves',()=>{for(const region of ['alps','monte','romania']){const world=makeWorld(new T.Scene(),stages.find(s=>s.region===region)),headings=world.samples.slice(1).map((p,i)=>Math.atan2(p.x-world.samples[i].x,-(p.z-world.samples[i].z)));assert.ok(Math.max(...headings)-Math.min(...headings)>2.2,region+' lacks opposite tight bends');let changes=0,last=-1000;for(let i=30;i<headings.length-30;i++){const turn=Math.abs(headings[i+25]-headings[i-25]);if(turn>1.5&&i-last>60){changes++;last=i}}assert.ok(changes>=3,region+' needs several genuine hairpins');world.dispose()}});
+
+test('all eighteen stages have distinct bend sequences even at a normalized distance',()=>{
+  const previews=stages.map(stage=>{
+    const points=getStagePreview(stage).points;
+    return points.slice(1).map((p,i)=>Math.atan2(p.x-points[i].x,-(p.z-points[i].z)));
+  });
+  for(let a=0;a<previews.length;a++)for(let b=a+1;b<previews.length;b++){
+    const difference=previews[a].reduce((sum,h,i)=>sum+Math.abs(h-previews[b][i]),0)/previews[a].length;
+    assert.ok(difference>.18,`${stages[a].id} and ${stages[b].id} repeat the same route`);
+  }
+});
+
+test('pixel crowd replaces cylinder people and camera flashes respond to the car passing',()=>{
+  const world=makeWorld(new T.Scene(),stages[0]);
+  const groups=world.root.getObjectsByProperty('name','pixel-spectators');
+  assert.equal(groups.length,8,'one atlas batch per clothing/pose variant');
+  assert.equal(groups.reduce((sum,g)=>sum+g.count,0),112);
+  assert.equal(world.root.getObjectByName('spectator-jackets'),undefined);
+  const map=groups[0].material.map;
+  assert.equal(map.magFilter,T.NearestFilter);assert.equal(map.minFilter,T.NearestFilter);
+  assert.equal(map.image.width,256);assert.equal(map.image.height,48);
+  assert.ok(map.image.data.some((v,i)=>i%4===3&&v===0),'transparent silhouette edges');
+  const matrix=new T.Matrix4(),position=new T.Vector3();
+  for(const group of groups)for(let i=0;i<group.count;i++){
+    group.getMatrixAt(i,matrix);position.setFromMatrixPosition(matrix);
+    assert.ok(world.nearest(position.x,position.z).dist>world.roadWidth/2+1,'crowd stays behind the road edge');
+  }
+  const flashes=world.root.getObjectByName('spectator-camera-flashes');
+  flashes.getMatrixAt(0,matrix);position.setFromMatrixPosition(matrix);assert.equal(matrix.getMaxScaleOnAxis(),0);
+  world.update(.016,position,.03);flashes.getMatrixAt(0,matrix);assert.ok(matrix.getMaxScaleOnAxis()>.6,'nearby photographer fires a brief flash');
+  world.update(.016,new T.Vector3(1e6,0,1e6),.03);flashes.getMatrixAt(0,matrix);assert.equal(matrix.getMaxScaleOnAxis(),0,'distant crowds do not flash every frame');
+  const boards=world.root.getObjectsByProperty('name','fictional-sponsor');
+  assert.equal(new Set(boards.map(b=>b.userData.sponsor)).size,6);
+  assert.equal(boards.reduce((sum,b)=>sum+b.count,0),30);
+  world.dispose();
+});

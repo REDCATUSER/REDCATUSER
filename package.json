@@ -1,7 +1,7 @@
 {
   "name": "rally-horizon",
-  "version": "6.0.0",
-  "description": "Rally Horizon First Edition : sp\u00e9ciales, championnats, garage et copilote hors ligne",
+  "version": "7.0.0",
+  "description": "Rally Horizon First Edition : spéciales, championnats, garage et copilote hors ligne",
   "author": "REDCATUSER",
   "license": "MIT",
   "main": "main.cjs",

@@ -32,7 +32,7 @@ export function noteCode(note){
 }
 
 /**
- * Offline French copilot. Notes use {distance (metres), text, code}.
+ * Offline multilingual copilot. Notes use {distance (metres), text, code}.
  * update returns the visual note; audio is anticipated by vehicle speed.
  * start(context?) can share RallyAudio.ctx, or create its own Web Audio context.
  */
@@ -43,6 +43,7 @@ export class Copilot{
   this.notes=[];this.cursor=0;this.current=null;this.text='';this.lastDistance=0;
   this.sources=new Set();this.nextVoiceTime=0;this._starting=null;this._wasActive=false;
   this.language='fr';this.packs={...VOICE_PACKS};this._voiceRevision=0;
+  this.lastCountdown=null;this.lastCrashTime=-Infinity;this.crashCount=0;
  }
  get voiceReady(){return this.ready}
  get speaking(){return Boolean(this.enabled&&this.volume>.001&&this.ctx&&this.sources.size&&this.ctx.currentTime<this.nextVoiceTime)}
@@ -83,6 +84,7 @@ export class Copilot{
    ...note,distance:Math.max(0,note.distance),code:noteCode(note),text:voiceText(noteCode(note),this.language)
   })).sort((a,b)=>a.distance-b.distance);
   this.cursor=0;this.current=null;this.text='';this.lastDistance=0;
+  this.lastCountdown=null;this.lastCrashTime=-Infinity;this.crashCount=0;
  }
  update(distance,speed,active=true){
   if(!Number.isFinite(distance))return this.current;
@@ -104,9 +106,24 @@ export class Copilot{
   }
   this.lastDistance=distance;return this.current;
  }
- speak(note){
+ // Countdown clips replace one another on the actual start-light transition.
+ // A late decode or an unusually long imported clip cannot queue "three" after GO.
+ countdown(number){
+  if(!Number.isInteger(number)||number<0||number>3||number===this.lastCountdown)return false;
+  const spoken=this.speak(number===0?'go':'count'+number,{interrupt:true,maxDuration:number===0?1.1:.87});
+  if(spoken)this.lastCountdown=number;
+  return spoken;
+ }
+ crash(severity=1,{force=false}={}){
+  if(!this.ready||!this.enabled||!Number.isFinite(severity)||severity<.13||(!force&&this.ctx.currentTime-this.lastCrashTime<12))return false;
+  const spoken=this.speak('crash'+(this.crashCount%2+1),{interrupt:true});
+  if(spoken){this.lastCrashTime=this.ctx.currentTime;this.crashCount++}
+  return spoken;
+ }
+ speak(note,{interrupt=false,maxDuration=Infinity}={}){
   if(!this.ready||!this.enabled)return false;
   const code=noteCode(note),buffer=this.buffers.get(code);if(!buffer)return false;
+  if(interrupt)this.stop();
   const c=this.ctx,now=c.currentTime;
   this.master.gain.setValueAtTime(clamp(this.volume,0,1),now);
   // A newer close turn supersedes an unstarted queued cue. Never overlap voices.
@@ -115,11 +132,11 @@ export class Copilot{
   }
   let playingUntil=now;
   for(const queued of this.sources)playingUntil=Math.max(playingUntil,queued.until);
-  const at=Math.max(now+.008,playingUntil+.065),source=c.createBufferSource();source.buffer=buffer;
+  const at=interrupt?now+.008:Math.max(now+.008,playingUntil+.065),source=c.createBufferSource();source.buffer=buffer;
   const gain=c.createGain();gain.gain.value=1;source.connect(gain).connect(this.master);
-  const entry={source,gain,at,until:at+buffer.duration};this.sources.add(entry);this.nextVoiceTime=entry.until;
+  const duration=Math.min(buffer.duration,maxDuration),entry={source,gain,at,until:at+duration};this.sources.add(entry);this.nextVoiceTime=entry.until;
   source.onended=()=>{source.disconnect();gain.disconnect();this.sources.delete(entry)};
-  source.start(at);return true;
+  source.start(at,0,duration);return true;
  }
  stop(){
   for(const entry of this.sources){try{entry.source.stop()}catch{}entry.source.disconnect();entry.gain.disconnect()}

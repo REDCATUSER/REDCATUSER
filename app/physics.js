@@ -43,13 +43,32 @@ export function resetDynamics(s) {
 
 export function shift(s, requestedGear) {
   if (!Number.isFinite(requestedGear) || s.shiftRemaining > 0) return false;
-  const gear = clamp(Math.round(requestedGear), 1, 6);
+  const gear = clamp(Math.round(requestedGear), -1, 6);
   if (gear === s.gear) return false;
+  // Selecting neutral is always safe. Direction changes need the car almost
+  // stopped, so a missed downshift cannot throw the transmission into reverse.
+  const forward = finite(s.vx) * -Math.sin(finite(s.yaw)) + finite(s.vz) * -Math.cos(finite(s.yaw));
+  if ((gear === -1 && forward > 1.2) || (gear > 0 && forward < -1.2)) return false;
   s.shiftFrom = s.gear;
   s.shiftStartRPM = s.rpm;
   s.gear = gear;
   s.shiftRemaining = clamp(finite(s.shiftDuration, .40), .20, .8);
   return true;
+}
+
+// The start marshal holds the car while the driver works the throttle and
+// gearbox. This updates only the unloaded engine/clutch: no hidden movement,
+// wheel spin or suspension is introduced before the green light.
+export function updateStationaryEngine(s, input = {}, dt = 1 / 120) {
+  if (!Number.isFinite(dt) || dt <= 0) return s;
+  const duration = Math.min(dt, .10);
+  s.throttle = clamp(finite(input.throttle), 0, 1);
+  s.brake = clamp(finite(input.brake), 0, 1);
+  s.shiftRemaining = Math.max(0, finite(s.shiftRemaining) - duration);
+  const targetRPM = 950 + s.throttle * 6450;
+  s.rpm = finite(s.rpm, 950) + (targetRPM - finite(s.rpm, 950)) * (1 - Math.exp(-duration * (s.throttle ? 7 : 4)));
+  s.engineLoad = s.throttle * .22;
+  return s;
 }
 
 function contextFor(context, legacyDistance) {
@@ -69,14 +88,14 @@ function advance(s, input, dt, context) {
   const mass = clamp(finite(car.mass, 1240), 650, 2200);
   const powerValue = finite(car.power, 250);
   const horsepower = clamp(powerValue < 10 ? powerValue * 250 : powerValue, 70, 650);
-  const wheelbase = clamp(finite(car.wheelbase, 2.60), 2.1, 3.3), frontShare=finite(car.frontWeight,car.driveType==='rwd'?.46:.57),frontArm = wheelbase * (1-frontShare), rearArm = wheelbase * frontShare;
+  const wheelbase = clamp(finite(car.wheelbase, 2.60), 2.1, 3.3), frontShare=clamp(finite(car.frontWeight,car.driveType==='rwd'?.46:.57),.35,.65),frontArm = wheelbase * (1-frontShare), rearArm = wheelbase * frontShare;
   const inertia = mass * wheelbase * wheelbase * .30, wheelRadius = .33;
   const wetness = clamp(finite(context.wetness), 0, 1);
   const roughness = clamp(finite(context.roughness, surface.roughness), 0, 1);
   const slope = clamp(finite(context.slope), -1.35, 1.35), crossSlope=clamp(finite(context.crossSlope),-1.35,1.35);
   s.offroad = Boolean(context.offroad);
   const grip = surface.grip * (tires[surfaceName]||.84) * (1 - wetness * surface.wet)
-    * (s.offroad ? .68 : 1) * finite(context.legacyGrip, 1);
+    * (s.offroad ? .68 : 1) * finite(context.legacyGrip, 1) * clamp(finite(context.gripMultiplier, 1), .5, 1.4);
   const normal = mass * gravity / Math.sqrt(1+Math.tan(slope)**2+Math.tan(crossSlope)**2);
 
   s.shiftRemaining = Math.max(0, finite(s.shiftRemaining) - dt);
@@ -84,6 +103,11 @@ function advance(s, input, dt, context) {
   s.throttle = clamp(finite(input.throttle), 0, 1);
   s.brake = clamp(finite(input.brake), 0, 1);
   s.handbrake = Boolean(input.handbrake);
+  // Switching back to automatic restores its forward range. Reverse in the
+  // automatic gearbox is still selected by holding the brake near standstill.
+  if (!s.manual && s.gear < 1) {
+    s.gear = 1; s.shiftFrom = 1; s.shiftRemaining = 0;
+  }
   const targetSteer = clamp(finite(input.steer), -1, 1);
   s.steer += (targetSteer - s.steer) * (1 - Math.exp(-dt * (targetSteer ? 7.5 : 11)));
   const fx = -Math.sin(s.yaw), fz = -Math.cos(s.yaw), rx = Math.cos(s.yaw), rz = -Math.sin(s.yaw);
@@ -106,10 +130,12 @@ function advance(s, input, dt, context) {
   let lateralForce = frontForce + rearForce;
 
   const finalDrive = 4.10 * (tuning.gearing === 'short' ? 1.13 : tuning.gearing === 'long' ? .89 : 1);
-  const ratio = ratios[clamp(Math.round(finite(s.gear, 1)), 1, 6)];
+  const selectedGear = clamp(Math.round(finite(s.gear, 1)), -1, 6);
+  const direction = selectedGear === -1 ? -1 : selectedGear > 0 ? 1 : 0;
+  const ratio = selectedGear === -1 ? 3.10 : ratios[selectedGear];
   const wheelRPM = speed / (wheelRadius * 2 * Math.PI) * 60;
   const coupledRPM = wheelRPM * ratio * finalDrive;
-  let targetRPM = clamp(Math.max(950 + s.throttle * 700 * clamp(1 - speed / 5, 0, 1), coupledRPM), 900, 7600);
+  let targetRPM = selectedGear === 0 ? 950 + s.throttle * 6450 : clamp(Math.max(950 + s.throttle * 700 * clamp(1 - speed / 5, 0, 1), coupledRPM), 900, 7600);
   if (s.shiftRemaining > 0) {
     // Unloaded engine and falling revs while the clutch is open; re-engage smoothly.
     const progress = 1 - s.shiftRemaining / s.shiftDuration;
@@ -126,7 +152,7 @@ function advance(s, input, dt, context) {
   const configuredTopSpeed = finite(car.topSpeed, 46);
   const topSpeed = (configuredTopSpeed > 100 ? configuredTopSpeed / 3.6 : configuredTopSpeed)
     * (surfaceName === 'sand' ? .86 : surfaceName === 'snow' ? .92 : 1);
-  const speedLimiter = clamp((topSpeed - forward) / 4, 0, 1);
+  const speedLimiter = clamp(((direction < 0 ? 10 : topSpeed) - direction * forward) / (direction < 0 ? 2 : 4), 0, 1);
   const health=clamp(1-clamp(finite(context.damage),0,1)*.55,.25,1);
   const driveDemand = s.throttle * horsepower * health * 1.22 * torqueCurve * ratio * finalDrive * .86 / wheelRadius * shiftCut * revLimiter * speedLimiter;
   s.engineLoad = s.throttle * shiftCut;
@@ -134,17 +160,20 @@ function advance(s, input, dt, context) {
   const availableTraction = normal * grip * frictionCircle;
   const drivenNormal=car.driveType==='fwd'?frontNormal:car.driveType==='rwd'?rearNormal:normal;
   const driveTraction=Math.max(1,drivenNormal*grip*frictionCircle);
-  let longitudinalForce = Math.min(driveDemand, driveTraction);
+  let longitudinalForce = Math.min(driveDemand, driveTraction) * direction;
   let driveSlip = clamp((driveDemand - driveTraction) / Math.max(driveTraction, 1), 0, 1);
   // Driven axles share grip between propulsion and turning. FWD pushes wide
   // under power; RWD progressively loosens the rear; AWD distributes the load.
-  const powerShare=clamp(longitudinalForce/driveTraction,0,1)*s.throttle;
+  const powerShare=clamp(Math.abs(longitudinalForce)/driveTraction,0,1)*s.throttle;
   if(car.driveType==='fwd')frontForce*=1-powerShare*.18;
   if(car.driveType==='rwd')rearForce*=1-powerShare*.08;
   lateralForce=frontForce+rearForce;
 
   if (s.brake > 0) {
-    if (forward > .35) {
+    if (s.manual) {
+      s.reverseHold = 0;
+      longitudinalForce -= Math.sign(forward) * Math.min(mass * 13.5 * s.brake, availableTraction, speed * mass / dt);
+    } else if (forward > .35) {
       s.reverseHold = 0;
       longitudinalForce -= Math.min(mass * 13.5 * s.brake, availableTraction, forward * mass / dt);
     } else {
@@ -152,7 +181,7 @@ function advance(s, input, dt, context) {
       longitudinalForce -= s.reverseHold > .35 ? Math.min(mass * 4.2 * s.brake * clamp((6.5 + forward) / 2, 0, 1), availableTraction) : forward * mass / dt;
     }
   } else s.reverseHold = 0;
-  if (forward < -.35 && s.throttle) longitudinalForce = Math.min(mass * 10 * s.throttle, availableTraction);
+  if (!s.manual && forward < -.35 && s.throttle) longitudinalForce = Math.min(mass * 10 * s.throttle, availableTraction);
   if (s.handbrake && speed > .01) longitudinalForce -= Math.sign(forward) * Math.min(mass * 4.8, speed * mass / dt);
   if (!s.throttle && !s.brake && speed > .01) {
     // Lower ratios provide more engine braking, including on downhill stages.
@@ -163,6 +192,12 @@ function advance(s, input, dt, context) {
   if (speed > .001) longitudinalForce -= Math.sign(forward) * Math.min(resistance, speed * mass / dt);
   const downhillForce=-normal*Math.tan(slope);
   longitudinalForce += downhillForce;
+  // A manual foot brake must hold at rest in N or R instead of slowly engaging
+  // the automatic reverse behavior. Grip still limits holding on steep ice.
+  if (s.manual && s.brake && speed < .15) {
+    const brakeCapacity = Math.min(mass * 13.5 * s.brake, availableTraction);
+    longitudinalForce -= clamp(longitudinalForce + forward * mass / dt, -brakeCapacity, brakeCapacity);
+  }
   // A handbrake can hold a parked car only while the tires can support the
   // downslope force. Steep snow banks still overcome the available grip.
   if(s.handbrake&&speed<.15)longitudinalForce-=clamp(longitudinalForce,-availableTraction*.8,availableTraction*.8);
@@ -196,7 +231,7 @@ function advance(s, input, dt, context) {
     const targetTravel = bump + transferTravel;
     wheel.travelVelocity += ((targetTravel - wheel.travel) * spring * spring - wheel.travelVelocity * spring * 1.5) * dt;
     wheel.travel = clamp(wheel.travel + wheel.travelVelocity * dt, -.16, .16);
-    wheel.load = clamp((front ? frontNormal / (normal * .54) : rearNormal / (normal * .46)) + (right ? -1 : 1) * lateralAcceleration * .045 - wheel.travel * 1.6, .25, 1.8);
+    wheel.load = clamp((front ? frontNormal / (normal * frontShare) : rearNormal / (normal * (1-frontShare))) + (right ? -1 : 1) * lateralAcceleration * .045 - wheel.travel * 1.6, .25, 1.8);
     wheel.slip = clamp(Math.abs(front ? frontSlip : rearSlip) * 2.5 + driveSlip * .45 + (s.handbrake && !front && speed > 1 ? .7 : 0), 0, 1);
     wheel.rotation += (forward / wheelRadius) * (s.handbrake && !front ? .15 : 1 + driveSlip * .22) * dt;
     totalTravel += wheel.travel; totalSlip += wheel.slip;
