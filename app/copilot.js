@@ -1,20 +1,21 @@
 import {NOTE_AUDIO} from '../src/audio/notes-data.js';
 import {decodeEmbeddedAudio} from './audio.js';
+import {VOICE_PACKS,voiceText} from './voices.js';
 
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 
 export function noteCode(note){
  const code=typeof note==='object'?note.code:note;
- if(NOTE_AUDIO[code])return code;
+ if(Object.hasOwn(NOTE_AUDIO,code))return code;
  const text=String(typeof note==='object'?note.text:note).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
- const left=/gauche|\bleft/.test(text),right=/droite|\bright/.test(text);
+ const left=/gauche|\bleft|\blinks/.test(text),right=/droite|\bright|\brechts/.test(text);
  if(left||right){
   const side=left?'left':'right';
-  if(/epingle|hairpin/.test(text))return left?'hairpinLeft':'hairpinRight';
-  if(/fond|flat/.test(text))return side+'Flat';
+  if(/epingle|hairpin|haarnadel/.test(text))return left?'hairpinLeft':'hairpinRight';
+  if(/fond|flat|voll/.test(text))return side+'Flat';
   const number=text.match(/[1-6]/);return side+(number?number[0]:'3');
  }
- if(/arrivee|finish/.test(text))return 'finish';
+ if(/arrivee|finish|ziel/.test(text))return 'finish';
  if(/saut|jump/.test(text))return 'jump';
  if(/ciel|crest/.test(text))return 'crest';
  if(/neige|snow|gliss/.test(text))return 'snow';
@@ -41,9 +42,10 @@ export class Copilot{
   this.enabled=true;this.volume=.86;this.ready=false;this.buffers=new Map();
   this.notes=[];this.cursor=0;this.current=null;this.text='';this.lastDistance=0;
   this.sources=new Set();this.nextVoiceTime=0;this._starting=null;this._wasActive=false;
+  this.language='fr';this.packs={...VOICE_PACKS};this._voiceRevision=0;
  }
  get voiceReady(){return this.ready}
- get speaking(){return Boolean(this.ctx&&this.sources.size&&this.ctx.currentTime<this.nextVoiceTime)}
+ get speaking(){return Boolean(this.enabled&&this.volume>.001&&this.ctx&&this.sources.size&&this.ctx.currentTime<this.nextVoiceTime)}
  async start(context){
   if(this._starting)return this._starting;
   if(this.ready){await this.ctx.resume();return}
@@ -55,16 +57,30 @@ export class Copilot{
   const AudioContext=globalThis.AudioContext||globalThis.webkitAudioContext;
   if(!this.ctx&&!AudioContext)throw new Error('Web Audio indisponible pour le copilote');
   const c=this.ctx||(this.ctx=new AudioContext());await c.resume();
-  this.master=c.createGain();this.master.gain.value=clamp(this.volume,0,1);
-  const compressor=c.createDynamicsCompressor();compressor.threshold.value=-12;compressor.ratio.value=3;
-  this.master.connect(compressor);compressor.connect(c.destination);
-  await Promise.all(Object.entries(NOTE_AUDIO).map(async([code,asset])=>{this.buffers.set(code,await decodeEmbeddedAudio(c,asset.url))}));
-  this.ready=true;this.nextVoiceTime=c.currentTime;
+  if(!this.master){this.master=c.createGain();this.master.gain.value=clamp(this.volume,0,1);
+   const compressor=c.createDynamicsCompressor();compressor.threshold.value=-12;compressor.ratio.value=3;
+   this.master.connect(compressor);compressor.connect(c.destination);}
+  await this.loadLanguage();this.nextVoiceTime=c.currentTime;
  }
+ async loadLanguage(){
+  const revision=++this._voiceRevision;this.ready=false;this.stop();
+  const clips={...VOICE_PACKS[this.language].clips,...this.packs[this.language].clips};
+  const entries=await Promise.all(Object.entries(clips).map(async([code,asset])=>[code,await decodeEmbeddedAudio(this.ctx,asset.url)]));
+  if(revision!==this._voiceRevision)return;
+  this.buffers=new Map(entries);this.ready=true;
+ }
+ async setLanguage(language){
+  if(!VOICE_PACKS[language])return;if(this.language===language&&this.ready)return;
+  this.language=language;this.localize();if(this.ctx&&this.master)await this.loadLanguage();
+ }
+ async setPack(pack){this.packs[pack.language]=pack;if(pack.language===this.language&&this.ctx&&this.master)await this.loadLanguage()}
+ async clearPack(language){this.packs[language]=VOICE_PACKS[language];if(language===this.language&&this.ctx&&this.master)await this.loadLanguage()}
+ localize(){for(const note of this.notes)note.text=voiceText(note.code,this.language);if(this.current){this.current.text=voiceText(this.current.code,this.language);this.text=this.current.text}}
+ get voiceInfo(){return this.packs[this.language]}
  reset(notes=[]){
   this.stop();
   this.notes=notes.filter(note=>Number.isFinite(note.distance)).map(note=>({
-   ...note,distance:Math.max(0,note.distance),code:noteCode(note),text:note.text||NOTE_AUDIO[noteCode(note)].text
+   ...note,distance:Math.max(0,note.distance),code:noteCode(note),text:voiceText(noteCode(note),this.language)
   })).sort((a,b)=>a.distance-b.distance);
   this.cursor=0;this.current=null;this.text='';this.lastDistance=0;
  }
@@ -92,6 +108,7 @@ export class Copilot{
   if(!this.ready||!this.enabled)return false;
   const code=noteCode(note),buffer=this.buffers.get(code);if(!buffer)return false;
   const c=this.ctx,now=c.currentTime;
+  this.master.gain.setValueAtTime(clamp(this.volume,0,1),now);
   // A newer close turn supersedes an unstarted queued cue. Never overlap voices.
   for(const queued of [...this.sources]){
    if(queued.at>now+.06){try{queued.source.stop()}catch{}this.sources.delete(queued)}

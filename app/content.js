@@ -11,7 +11,7 @@ export const STAGES = [
   stage('dakar-3', 'Oued des Échos', 'dakar', 'sand', 'sun', 2, 3650, 200, 'Une piste sèche rapide qui serpente entre les rochers.'),
   stage('france-1', 'Forêt des Cévennes', 'france', 'asphalt', 'overcast', 0, 3300, 170, 'Asphalte étroit, forêt dense et enchaînements rapides.'),
   stage('france-2', 'Les Vignes du Ventoux', 'france', 'asphalt', 'rain', 1, 3500, 195, 'Routes de campagne humides, freinages et relances.'),
-  stage('france-3', 'Col du Châtaignier', 'france', 'asphalt', 'sun', 2, 3700, 207, 'Épingles cévenoles et montées entre les arbres.'),
+  stage('france-3', 'Village du Châtaignier', 'france', 'asphalt', 'sun', 2, 3700, 207, 'Traversée de village, façades en pierre puis montée entre les arbres.'),
   stage('monte-1', 'Route du Turini', 'monte', 'asphalt', 'overcast', 0, 3350, 190, 'Une spéciale inspirée des cols au-dessus de Monte-Carlo.'),
   stage('monte-2', 'Balcon de la Riviera', 'monte', 'asphalt', 'rain', 1, 3550, 207, 'Corniches sinueuses et asphalte mouillé de montagne.'),
   stage('monte-3', 'Nuit du Col', 'monte', 'asphalt', 'night', 2, 3750, 220, 'Finale nocturne : phares conseillés, précipices et épingles.'),

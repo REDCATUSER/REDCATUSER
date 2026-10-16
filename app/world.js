@@ -14,17 +14,26 @@ const palettes = {
 function randomSource(seed) { return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }; }
 function material(color, extra = {}) { return new T.MeshStandardMaterial({ color, roughness: .92, ...extra }); }
 
-function canvasTexture(kind, color, seed) {
+const TEXTURE_SIZES={low:256,medium:512,high:1024};
+function canvasTexture(kind, color, seed, size=512) {
   if (typeof document === 'undefined') return null;
-  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d'); if (!ctx) return null;
+  ctx.scale(size/256,size/256);
   const rand = randomSource(seed), c = new T.Color(color);
   ctx.fillStyle = `#${c.getHexString()}`; ctx.fillRect(0, 0, 256, 256);
-  for (let i = 0, n = kind === 'asphalt' || kind === 'broken' ? 5400 : 2100; i < n; i++) {
+  for (let i = 0, n = (kind === 'asphalt' || kind === 'broken' ? 5400 : 3100)*size/256; i < n; i++) {
     const tone = rand() > .5 ? 255 : 15;
     ctx.fillStyle = `rgba(${tone},${tone},${tone},${.025 + rand() * .13})`;
     ctx.fillRect(rand() * 256, rand() * 256, kind === 'sand' ? 5 + rand() * 19 : 1 + rand() * 3, .5 + rand() * 2);
   }
+  if(kind==='grass'||kind==='bark'||kind==='rock'){
+    for(let i=0;i<1800;i++){
+      const x=rand()*256,y=rand()*256;ctx.strokeStyle=kind==='grass'?'rgba(75,106,32,.16)':kind==='bark'?'rgba(33,22,11,.35)':'rgba(70,67,62,.16)';ctx.lineWidth=kind==='bark'?.6:.3;
+      ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+(rand()-.5)*(kind==='bark'?3:9),y+3+rand()*(kind==='bark'?32:7));ctx.stroke();
+    }
+  }
+  if(kind==='sandground'){ctx.strokeStyle='rgba(111,90,52,.12)';ctx.lineWidth=.8;for(let y=0;y<256;y+=5){ctx.beginPath();for(let x=0;x<=256;x+=4){const yy=y+Math.sin(x*.08+y*.04)*3;x?ctx.lineTo(x,yy):ctx.moveTo(x,yy)}ctx.stroke()}}
   if (kind === 'broken' || kind === 'asphalt') {
     ctx.strokeStyle = 'rgba(18,22,20,.34)'; ctx.lineWidth = kind === 'broken' ? 1.8 : .7;
     for (let n = 0; n < (kind === 'broken' ? 17 : 4); n++) {
@@ -37,7 +46,7 @@ function canvasTexture(kind, color, seed) {
     for (let y = 0; y < 256; y += 8) { ctx.fillStyle = 'rgba(65,66,59,.1)'; ctx.fillRect(x - 7, y, 14, 2); }
   }
   const map = new T.CanvasTexture(canvas); map.wrapS = map.wrapT = T.RepeatWrapping;
-  map.colorSpace = T.SRGBColorSpace; map.anisotropy = 4; return map;
+  map.colorSpace = T.SRGBColorSpace; map.anisotropy = 8; return map;
 }
 
 // Monotonic valley coordinates prevent crossings and keep start/finish far apart.
@@ -72,7 +81,16 @@ function makeRoute(stage, palette) {
   return { curve, samples, distances, length: distances.at(-1), atZ };
 }
 
-export function makeWorld(scene, stage = STAGES[0], index = 0) {
+export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
+  let textureQuality=options.textureQuality||'medium';const textured=[];
+  function texturedMaterial(color,textureKind,seed,extra={}){
+    const m=material(color,extra);textured.push({material:m,kind:textureKind,seed});
+    m.map=canvasTexture(textureKind,0xffffff,seed,TEXTURE_SIZES[textureQuality]||512);m.bumpMap=m.map;m.bumpScale=textureKind==='bark'?.045:textureKind==='rock'?.07:.018;return m;
+  }
+  function setTextureQuality(quality){
+    if(!TEXTURE_SIZES[quality]||quality===textureQuality)return;textureQuality=quality;
+    for(const entry of textured){entry.material.map?.dispose();entry.material.map=canvasTexture(entry.kind,0xffffff,entry.seed,TEXTURE_SIZES[quality]);entry.material.bumpMap=entry.material.map;entry.material.needsUpdate=true}
+  }
   const palette = palettes[stage.region] || palettes.france;
   const rand = randomSource(1948 + index * 193 + (Number(stage.variant) || 0) * 8191);
   const root = new T.Group(); root.name = `special-${stage.id || index}`; scene.add(root);
@@ -139,8 +157,8 @@ export function makeWorld(scene, stage = STAGES[0], index = 0) {
     }
     const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.Float32BufferAttribute(vertices, 3)); geo.setAttribute('uv', new T.Float32BufferAttribute(uvs, 2));
     geo.setAttribute('color', new T.Float32BufferAttribute(colors, 3)); geo.setIndex(indices); geo.computeVertexNormals();
-    const map = canvasTexture(isRoad ? stage.surface : 'ground', isRoad || stage.region === 'alps' ? 0xffffff : 0xc8ccb5, index + 3);
-    const mesh = new T.Mesh(geo, material(0xffffff, { map, vertexColors: true, side: T.DoubleSide, roughness: isRoad && kind === 'rain' ? .46 : .95 }));
+    const textureKind=isRoad?stage.surface:stage.region==='dakar'?'sandground':stage.region==='alps'?'ground':'grass';
+    const mesh = new T.Mesh(geo, texturedMaterial(0xffffff,textureKind,index+3, {vertexColors: true, side: T.DoubleSide, roughness: isRoad && kind === 'rain' ? .46 : .95 }));
     mesh.receiveShadow = true; mesh.name = isRoad ? 'road' : 'terrain'; root.add(mesh);
   }
   const groundOffsets = [...new Set([-480, -220, -100, -45, -23, -12, -halfWidth - 2, -halfWidth, 0, halfWidth, halfWidth + 2, 12, 23, 45, 100, 220, 480])].sort((a,b)=>a-b);
@@ -159,8 +177,8 @@ export function makeWorld(scene, stage = STAGES[0], index = 0) {
 
   // Branches and five irregular foliage clusters produce volumetric, non-conical trees.
   const treeCount = stage.region === 'dakar' ? 65 : 460;
-  const trunks = new T.InstancedMesh(new T.CylinderGeometry(.2, .34, 1, 7), material(0x695644), treeCount);
-  const leaves = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), material(0xffffff), treeCount * 5);
+  const trunks = new T.InstancedMesh(new T.CylinderGeometry(.2, .34, 1, 10), texturedMaterial(0x695644,'bark',31), treeCount);
+  const leaves = new T.InstancedMesh(new T.IcosahedronGeometry(1, 2), material(0xffffff), treeCount * 5);
   const branches = new T.InstancedMesh(new T.CylinderGeometry(.06, .13, 1, 5), material(0x6b5944), treeCount * 3);
   trunks.name = 'tree-trunks'; leaves.name = 'tree-canopies'; leaves.castShadow = true; trunks.castShadow = true;
   for (let i = 0; i < treeCount; i++) {
@@ -190,7 +208,7 @@ export function makeWorld(scene, stage = STAGES[0], index = 0) {
   }
 
   const rockCount = stage.region === 'dakar' ? 100 : 170;
-  const rocks = new T.InstancedMesh(new T.DodecahedronGeometry(1, 1), material(palette.rock), rockCount); rocks.castShadow = true;
+  const rocks = new T.InstancedMesh(new T.DodecahedronGeometry(1, 1), texturedMaterial(palette.rock,'rock',63), rockCount); rocks.castShadow = true;
   for (let i = 0; i < rockCount; i++) {
     const p = roadsidePoint(Math.floor(rand() * (samples.length - 1)), rand() < .5 ? -1 : 1, 11 + rand() * 130), scale = .7 + rand() * 3.5;
     instance(rocks, i, p.x, heightAt(p.x, p.z) + scale * .25, p.z, scale * 1.3, scale * .75, scale, rand() * 6);
@@ -246,6 +264,22 @@ export function makeWorld(scene, stage = STAGES[0], index = 0) {
     obstacles.push({x:p.x,z:p.z,r:Math.max(w,d)*.65});
   }
   root.add(houses,roofs,windows);
+  // A village crossing gives the last French special a distinct urban sector,
+  // while preserving its one-way rally format and keeping buildings off-road.
+  if(stage.region==='france'&&stage.variant===2){
+    const count=44,walls=new T.InstancedMesh(new T.BoxGeometry(1,1,1),texturedMaterial(0xd6c6a8,'rock',71),count);
+    const glazing=new T.InstancedMesh(new T.BoxGeometry(1,1,1),material(0x426875,{roughness:.3,metalness:.4}),count*6);
+    const pavement=new T.InstancedMesh(new T.BoxGeometry(1,1,1),material(0x999b91),count);
+    walls.name='village-buildings';
+    for(let i=0;i<count;i++){
+      const index=90+Math.floor(i/2)*5,side=i%2?1:-1,p=roadsidePoint(index,side,halfWidth+7),y=heightAt(p.x,p.z),h=7+(i%4)*1.3;
+      instance(walls,i,p.x,y+h*.5,p.z,6,h,7,p.yaw);
+      const foot=roadsidePoint(index,side,halfWidth+1.5);instance(pavement,i,foot.x,heightAt(foot.x,foot.z)+.07,foot.z,2,.14,11,p.yaw);
+      for(let j=0;j<6;j++){const u=(j%2?1:-1)*1.55,front=-3.55;instance(glazing,i*6+j,p.x+Math.cos(p.yaw)*u+Math.sin(p.yaw)*front,y+2+(j>>1)*2.5,p.z-Math.sin(p.yaw)*u+Math.cos(p.yaw)*front,1.1,1.3,.1,p.yaw)}
+      obstacles.push({x:p.x,z:p.z,r:4.5});
+    }
+    root.add(walls,glazing,pavement);
+  }
   if(stage.region==='dakar') {
     const tents=new T.InstancedMesh(new T.ConeGeometry(3,2.6,4),material(0xebe0c2),12);
     for(let i=0;i<12;i++){const p=roadsidePoint(15+i*3,1,22+(i%3)*9);instance(tents,i,p.x,heightAt(p.x,p.z)+1.3,p.z,1,1,1,Math.PI/4)}root.add(tents);
@@ -299,10 +333,23 @@ export function makeWorld(scene, stage = STAGES[0], index = 0) {
     if(scene.fog)scene.fog.far=fogFar*(1+Math.sin(elapsed*.015)*.07);
     weather.wetness=T.MathUtils.clamp((kind==='rain'?.75:kind==='snow'?.28:.04)+Math.sin(elapsed*.02)*.06,0,1);
   }
-  return {root,curve,samples,length,gates,nearest,heightAt,surfaceAt,notes,obstacles,barriers,weather,roadWidth:halfWidth*2,update,
+  // Spatial batches let the GPU cull distant scenery, rather than drawing every
+  // detailed tree along the entire 3.5 km special in a single huge instance.
+  for(const original of [...root.children]){
+    if(!original.isInstancedMesh||original.count<100)continue;
+    const chunks=new Map(),matrix=new T.Matrix4(),color=new T.Color();
+    for(let i=0;i<original.count;i++){original.getMatrixAt(i,matrix);const key=Math.floor(matrix.elements[14]/220);if(!chunks.has(key))chunks.set(key,[]);chunks.get(key).push(i)}
+    for(const indices of chunks.values()){
+      const part=new T.InstancedMesh(original.geometry,original.material,indices.length);part.name=original.name;part.castShadow=original.castShadow;part.receiveShadow=original.receiveShadow;
+      indices.forEach((index,i)=>{original.getMatrixAt(index,matrix);part.setMatrixAt(i,matrix);if(original.instanceColor){original.getColorAt(index,color);part.setColorAt(i,color)}});
+      part.computeBoundingSphere();root.add(part);
+    }
+    root.remove(original);original.dispose();
+  }
+  return {root,curve,samples,length,gates,nearest,heightAt,surfaceAt,notes,obstacles,barriers,weather,roadWidth:halfWidth*2,update,setTextureQuality,get textureSize(){return TEXTURE_SIZES[textureQuality]||512},
     dispose(){
       scene.remove(root);const geometries=new Set(),materials=new Set(),textures=new Set();
-      root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material]){materials.add(m);for(const value of Object.values(m))if(value?.isTexture)textures.add(value)}});
+      root.traverse(o=>{if(o.isInstancedMesh)o.dispose();if(o.geometry)geometries.add(o.geometry);if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material]){materials.add(m);for(const value of Object.values(m))if(value?.isTexture)textures.add(value)}});
       for(const texture of textures)texture.dispose();for(const geo of geometries)geo.dispose();for(const m of materials)m.dispose();
     }
   };

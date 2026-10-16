@@ -53,3 +53,46 @@ Reproduction:
 
 All audio data URLs are embedded locally so the Windows build and standalone
 HTML can speak French without Internet access or an installed French voice.
+
+
+Version 4 international copilot
+-------------------------------
+international-data.js contains 30 German and 30 English cues. German and
+supplemental English cues are generated from the original phrase text in
+voice-texts.json using eSpeak NG 1.52.0. They are SYNTHETIC, not human voices.
+Their original phrase text and audio output are provided under the project's
+MIT license. No speech synthesis executable/database is distributed.
+
+22 English cues use recorded words from Trigger Rally's AB voice pack.
+Author: Andrei Bondor.
+License: GPL version 2 or, at your option, any later version.
+Upstream: Trigger Rally 0.6.6.1, data/sounds/codriver/ab/*.wav.
+Source distribution:
+ https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally_0.6.6.1.orig.tar.gz
+Recording distribution:
+ https://deb.debian.org/debian/pool/main/t/trigger-rally/trigger-rally-data_0.6.6.1-4_all.deb
+Explicit per-file upstream attribution:
+ Andrei Bondor
+     sounds/codriver/ab/* (GPL)
+
+The 15 unmodified source WAVs used are in english-source/: Hairpin, Hard,
+Square, Medium, Easy, Flat, Left, Right, Finish, Jump, Dont, Cut, Snow, Sand,
+and Dirt. Those WAVs are included with the game, and in the source repository:
+ https://github.com/REDCATUSER/REDCATUSER/tree/main/src/audio/english-source
+Playback derivatives join the recorded words, normalize/filter volume and
+encode mono 22.05 kHz Vorbis. They remain GPL-2.0-or-later. The full GPL v2
+license is in GPL-2.0.txt, and in the embedded third-party notices.
+These independently licensed sound assets are aggregated with the MIT game.
+The source asset license does not claim ownership of the original speakers.
+
+Difficulty mapping (1 = tightest, 6 = fastest):
+ 1 Hairpin, 2 Hard, 3 Square, 4 Medium, 5 Easy, 6 Flat, then Left or Right.
+There are no authentic French or German human recordings in the default
+build. The settings UI labels their synthetic origin and accepts authorized
+local voice packs. Imported packs keep the author's own declared license.
+
+Music
+-----
+The original House arrangement is generated locally by app/music.js under
+this project's MIT license. It contains original programmed percussion,
+bass and chord patterns, with no samples from commercially released music.

@@ -58,9 +58,9 @@ test('road surfaces and weather distinguish the six regions without a browser', 
     const outside = world.nearest(p.x + 100, p.z);
     assert.ok(outside.dist > world.roadWidth / 2);
     assert.ok(['grass', 'sand', 'snow'].includes(outside.surface));
-    const canopies = world.root.getObjectByName('tree-canopies');
-    assert.equal(canopies.geometry.type, 'IcosahedronGeometry');
-    assert.ok(canopies.count >= 300, 'trees use several 3D canopy clusters');
+    const canopies = world.root.getObjectsByProperty('name','tree-canopies');
+    assert.ok(canopies.every(part=>part.geometry.type==='IcosahedronGeometry'));
+    assert.ok(canopies.reduce((sum,part)=>sum+part.count,0) >= 300, 'trees use several 3D canopy clusters');
     if (region !== 'dakar') assert.ok(world.barriers.length > 100);
     world.dispose();
   }

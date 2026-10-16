@@ -19,8 +19,14 @@ test('all six cars keep the pilot sight line clear and survive garage changes', 
     assert.equal(ray.intersectObjects(visibleOpaque, false).length, 0, `${id} obscures the pilot's forward sight line`);
     car.root.traverse(object => assert.ok(object.matrixWorld.elements.every(Number.isFinite), `${id} has invalid geometry transforms`));
     assert.equal(car.exterior.visible, false);
+    assert.ok(car.wheels.every(w=>!w.pivot.visible),'wheels must disappear from the cockpit');
+    car.setConfig({textureQuality:car.textureSize===1024?'medium':'high'});
+    assert.ok(car.wheels.every(w=>!w.pivot.visible),'texture changes preserve cockpit visibility');
+    car.update({cameraMode:1});
+    assert.ok(car.wheels.every(w=>!w.pivot.visible),'wheels must disappear from the hood view');
     car.update({ cameraMode: 0 });
     assert.equal(car.exterior.visible, true);
+    assert.ok(car.wheels.every(w=>w.pivot.visible));
   }
   car.dispose();
   assert.equal(scene.children.length, 0);

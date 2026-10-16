@@ -2,6 +2,13 @@
 
 Jeu de rallye 3D en français, hors ligne, pour Windows 10/11 x64. Cette édition remplace les boucles par des spéciales de point à point et ajoute carrière, garage, copilote et nouveaux véhicules. Les routes et modèles sont des créations procédurales inspirées du rallye ; il ne s’agit pas de reproductions photographiques ou de parcours géographiques exacts.
 
+Version **4.0** : cockpit, matériaux, dévers, paramètres en pause, remappage et audio multilingue. Captures réelles du jeu en qualité légère :
+
+![Garage et modèle 3D](docs/garage-v4.png)
+
+![Vue pilote avec volant et mains](docs/cockpit-v4.png)
+
+
 ## Télécharger et installer
 
 Dans GitHub **Actions → Jeu Windows**, ouvrir la dernière exécution réussie puis télécharger l’artefact souhaité (connexion GitHub nécessaire). Extraire le ZIP avant de lancer le programme.
@@ -32,7 +39,20 @@ La voiture initiale est la Horizon Club 1600. Les six silhouettes sont des modè
 
 ## Garage et physique
 
+Le châssis suit quatre points de contact : tangage et roulis correspondent aux pentes sous les roues. La gravité agit aussi en dévers, la charge normale diminue avec la pente, et une montée trop raide sur neige provoque un recul. La traction utilise une limite d’adhérence partagée entre accélération et forces latérales ; le frein à main libère l’arrière. Le relief reste un modèle de contact au sol, sans simulation complète des tonneaux et sauts.
+
 Choisir une voiture débloquée, la couleur, les pneus (asphalte/gravier/neige/sable), la suspension et l’étagement de boîte. Les réglages influencent réellement la conduite : adhérence, relances, résistance au roulement, débattement et régime moteur. Le modèle utilise des forces de pneus avant/arrière, une inertie de lacet, la charge et le glissement des roues, les bosses et la pente. La neige reste glissante, les pneus neige améliorent la motricité, et le sable oppose davantage de résistance. Il s’agit d’une conduite de jeu évoluée, pas d’une simulation automobile professionnelle.
+
+## Paramètres et pause
+
+**Échap → Paramètres** ouvre les mêmes réglages que le menu principal sans avancer le chronomètre. **Recommencer la spéciale** remet la voiture au départ et efface uniquement le temps/checkpoints de la tentative actuelle, en conservant les résultats des précédentes spéciales du championnat.
+
+- Affichage : fenêtré / plein écran (natif dans Electron, API plein écran dans le navigateur), résolution de rendu automatique ou 720p / 900p / 1080p / 1440p. Les dimensions choisies concernent le tampon de rendu 3D ; l’interface garde sa netteté et s’adapte à la fenêtre.
+- Graphismes : ombres et échelle de rendu automatique ; textures indépendantes 256 / 512 / 1024 px pour les tissus, cuir, pneus, asphalte, herbe et roche. Le mode léger désactive aussi le relief des matériaux. Les décors sont regroupés par secteurs pour limiter le rendu des objets éloignés.
+- Audio : volume général et volumes indépendants musique, moteur, copilote, effets/pneus. Les quatre canaux sont effectivement séparés.
+- Commandes : toutes les actions du clavier peuvent être remappées, avec trois touches par action et contrôle des conflits. Cliquer une case, appuyer sur la nouvelle touche ; Retour arrière / Suppr retire l’affectation, Échap annule. Le bouton de pause reste accessible même si sa touche a été retirée.
+
+La sauvegarde v3 est conservée : voitures, records et championnat en cours restent utilisables après la mise à jour. Les nouveaux réglages prennent leurs valeurs par défaut à la première ouverture.
 
 ## Commandes
 
@@ -50,13 +70,36 @@ Choisir une voiture débloquée, la couleur, les pneus (asphalte/gravier/neige/s
 | Replacer au dernier checkpoint | R, +5 secondes hors entraînement |
 | Pause | Échap |
 
+Les roues extérieures sont masquées en vues pilote et capot. Le cockpit possède un tablier opaque et des matériaux de cuir, tissu et carbone. Les modèles originaux utilisent des panneaux arrondis, des doigts articulés, des pneus à épaules lisses et des jantes détaillées. Ce sont des modèles procéduraux originaux, pas des scans photoréalistes.
+
 Les vues pilote et capot sont fixées au châssis dans son repère local, sans interpolation indépendante ni secousses artificielles. Le volant et les mains suivent le braquage ; la main droite rejoint le levier pendant les passages de vitesses et revient ensuite. Les phares utilisent des faisceaux 3D. Le jeu se met en pause lorsque la fenêtre perd le focus.
 
 ## Audio et copilote
 
 Une véritable boucle moteur enregistrée, un claquement de boîte et un roulement sur gravier, sous CC0, sont associés à des couches de combustion, admission, turbo, vent et pneus. Le régime et le timbre évoluent avec le rapport et la charge, avec coupure au passage des vitesses. Le cockpit possède un filtrage différent. Un même enregistrement de base sert aux six voitures, enrichi de caractères synthétiques ; ce ne sont pas six enregistrements authentiques de modèles particuliers.
 
-Le copilote dispose de **30 clips français embarqués**, synthétisés dans un style radio : gauche/droite 1 à 6, à fond, épingles, prudence, etc. Les notes de virage sont calculées depuis le tracé et annoncées en avance selon la vitesse ; elles apparaissent aussi à l’écran. Les fichiers audio sont intégrés au jeu et au HTML autonome : aucune voix Windows ou connexion n’est nécessaire. Copilote désactivable et volume réglable dans Options.
+Le copilote propose **français, anglais et allemand**, chacun avec 30 annonces locales. En anglais, 22 annonces utilisent les mots enregistrés du pack AB d’Andrei Bondor pour Trigger Rally (GPL-2.0-or-later) : virages, arrivée, saut et surfaces. Les autres annonces anglaises et toutes les annonces françaises et allemandes sont **synthétiques**, créées avec eSpeak NG. Les voix humaines françaises et allemandes demandées ne sont donc pas fournies dans cette version. L’interface indique précisément l’origine de la voix choisie.
+
+Les notes sont calculées depuis le tracé, affichées dans la langue sélectionnée et anticipées selon la vitesse. En anglais enregistré, les niveaux 1 à 6 se disent Hairpin, Hard, Square, Medium, Easy, Flat. Aucun service vocal, connexion ou voix Windows n’est nécessaire. La musique est une composition House originale à 124 BPM, rendue localement une seule fois puis jouée en boucle dans les menus et en conduite. Son volume baisse pendant les annonces.
+
+### Importer un pack vocal enregistré
+
+Options → Importer des voix enregistrées accepte un fichier JSON contenant :
+
+```json
+{
+  "version": 1,
+  "language": "fr",
+  "name": "Mon copilote",
+  "author": "Nom du locuteur",
+  "license": "Autorisation ou licence des enregistrements",
+  "clips": { "left2": "data:audio/ogg;base64,..." }
+}
+```
+
+Annonces obligatoires : `left1` à `left6`, `right1` à `right6`, `finish`. Annonces complémentaires : `leftFlat`, `rightFlat`, `hairpinLeft`, `hairpinRight`, `jump`, `crest`, `caution`, `straight`, `start`, `snow`, `sand`, `rough`, `brake`, `dontCut`, `100`, `200`, `300`. Les annonces complémentaires absentes utilisent la voix fournie. Formats acceptés : OGG, WAV, MP3, MP4 audio ou WebM encodés en data URL, sans lien réseau ; limite 18 Mo par pack. Les fichiers sont vérifiés avant enregistrement puis conservés dans IndexedDB, indépendamment de la carrière. Le bouton « Utiliser la voix fournie » supprime seulement le pack de la langue courante. N’importer que des enregistrements dont l’utilisation est autorisée.
+
+Le script optionnel `scripts/generate-voices.py` reproduit les clips anglais/allemands avec eSpeak NG et FFmpeg ; les WAV originaux du pack AB sont conservés dans `src/audio/english-source/`.
 
 Attributions et licences : `THIRD_PARTY_NOTICES.txt` et `src/audio/LICENSE.txt`. Les fichiers d’origine sont conservés dans `src/audio/`.
 
@@ -67,10 +110,13 @@ Node.js 22 ou ultérieur. `npm ci`, puis :
 - `npm test` : tests de physique, véhicules, carrière, checkpoints, copilote et 18 spéciales.
 - `npm run test:browser` : contrôles d’interface Chromium (navigateur système ou `npx playwright install chromium` ; chemin possible via `RALLY_BROWSER`).
 - `npm run build` : compiler `app/` vers `src/game.js` et générer `dist/Rally-Horizon-3D.html` avec code, sons et notices intégrés.
+- `npm run test:offline` : vérifier le HTML généré avec le réseau désactivé, y compris moteur, musique, copilote et WAV sources sous GPL. Si la politique du navigateur interdit `file://`, le test exécute le contenu HTML exact en mémoire et le signale ; cela ne valide pas une navigation `file://` dans cet environnement.
 - `npm start` : lancer Electron avec interface graphique.
 - `python3 -m http.server 8000 --directory src` : servir la version navigateur compilée.
 - `npm run dist:win` : produire installateur et portable Windows x64 dans `dist/`. Le manifeste de désinstallation est généré automatiquement par le hook `afterPack` ; il ne supprime que les fichiers distribués et conserve les fichiers supplémentaires de l’utilisateur.
 
 Sous environnement Linux avec répertoire utilisateur en lecture seule : `npm ci --cache /tmp/rally-npm-cache`, puis `XDG_CACHE_HOME=/tmp/rally-cache ELECTRON_CACHE=/tmp/rally-electron-cache ELECTRON_BUILDER_CACHE=/tmp/rally-builder-cache npm run dist:win`.
+
+Les tests couvrent aussi la migration des réglages, les dévers, le recul sur pente trop raide, les packs multilingues et la validation des imports.
 
 Les tests de progression utilisent notamment des placements contrôlés aux checkpoints pour vérifier les états de course. Ils ne remplacent pas le pilotage physique d’une spéciale entière. Les contrôles de navigateur vérifient le rendu, les caméras fixées au véhicule, les touches, le signal audio et la persistance. Réglage graphique **Légère** disponible pour diminuer la résolution et désactiver les ombres.

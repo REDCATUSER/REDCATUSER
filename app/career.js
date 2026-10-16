@@ -1,16 +1,16 @@
 import {STAGES,CARS,CHAMPIONSHIPS} from './content.js';
+import {normalizeSettings} from './settings.js';
 const KEY='rally-horizon-career-v3';
 const DEFAULT_TUNING={color:'#e74e35',tires:'snow',suspension:'balanced',gearing:'balanced'};
-const DEFAULT_SETTINGS={manual:false,camera:0,volume:72,copilot:true,quality:'medium'};
 const DRIVERS=[['dupont','L. Dupont'],['berg','E. Berg'],['santos','M. Santos'],['ionescu','A. Ionescu'],['carter','J. Carter'],['nakamura','Y. Nakamura']];
 const finiteTime=value=>typeof value==='number'&&Number.isFinite(value)&&value>0&&value<86400;
 const ids=(list,key='id')=>list.map(x=>x[key]);
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const clone=value=>JSON.parse(JSON.stringify(value));
 const hash=text=>{let h=2166136261;for(const c of text){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return(h>>>0)/4294967296;};
-function defaults(){return{version:3,selectedCar:'club',unlockedCars:['club'],unlockedChampionships:['alps'],completedChampionships:[],tuning:{...DEFAULT_TUNING},settings:{...DEFAULT_SETTINGS},records:{},active:null};}
+function defaults(){return{version:3,selectedCar:'club',unlockedCars:['club'],unlockedChampionships:['alps'],completedChampionships:[],tuning:{...DEFAULT_TUNING},settings:normalizeSettings(),records:{},active:null};}
 function tuningValid(value){const out={...DEFAULT_TUNING};if(!value||typeof value!=='object')return out;if(/^#[\da-f]{6}$/i.test(value.color))out.color=value.color;if(['road','gravel','snow','sand'].includes(value.tires))out.tires=value.tires;if(['soft','balanced','firm'].includes(value.suspension))out.suspension=value.suspension;if(['short','balanced','long'].includes(value.gearing))out.gearing=value.gearing;return out;}
-function settingsValid(value){const out={...DEFAULT_SETTINGS};if(!value||typeof value!=='object')return out;for(const field of ['manual','copilot'])if(typeof value[field]==='boolean')out[field]=value[field];if([0,1,2].includes(value.camera))out.camera=value.camera;if(typeof value.volume==='number'&&Number.isFinite(value.volume))out.volume=clamp(value.volume,0,100);if(['low','medium','high'].includes(value.quality))out.quality=value.quality;return out;}
+const settingsValid=normalizeSettings;
 function validate(input){const data=defaults();if(!input||typeof input!=='object')return data;
   const completed=Array.isArray(input.completedChampionships)?input.completedChampionships:[];
   // Reconstruct unlocks from successive victories; malformed saves cannot lock out the starter car.

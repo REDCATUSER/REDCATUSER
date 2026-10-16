@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // Original procedural rally cars. Every surface and texture is made locally;
 // none of the cars depends on a remote model, font, image or service.
@@ -16,24 +17,13 @@ const clamp = T.MathUtils.clamp;
 const mat = (color, roughness = .72, metalness = 0) => new T.MeshStandardMaterial({ color, roughness, metalness });
 
 function roundedGeometry(w, h, d, radius = .04) {
-  const r = Math.min(radius, w / 3, h / 3, d / 3);
-  const x = -w / 2 + r, y = -h / 2 + r;
-  const shape = new T.Shape();
-  shape.moveTo(x + r, y); shape.lineTo(x + w - 3 * r, y);
-  shape.quadraticCurveTo(x + w - 2 * r, y, x + w - 2 * r, y + r);
-  shape.lineTo(x + w - 2 * r, y + h - 3 * r);
-  shape.quadraticCurveTo(x + w - 2 * r, y + h - 2 * r, x + w - 3 * r, y + h - 2 * r);
-  shape.lineTo(x + r, y + h - 2 * r); shape.quadraticCurveTo(x, y + h - 2 * r, x, y + h - 3 * r);
-  shape.lineTo(x, y + r); shape.quadraticCurveTo(x, y, x + r, y);
-  const geometry = new T.ExtrudeGeometry(shape, { depth: d - 2 * r, bevelEnabled: true, bevelThickness: r, bevelSize: r, bevelSegments: 2, steps: 1, curveSegments: 4 });
-  geometry.translate(0, 0, -d / 2 + r);
-  geometry.computeVertexNormals();
-  return geometry;
+  return new RoundedBoxGeometry(w, h, d, 2, Math.min(radius, w / 2, h / 2, d / 2));
 }
 
 function disposeGroup(group) {
   const geometries = new Set(), materials = new Set(), textures = new Set();
   group.traverse(object => {
+    if (object.isInstancedMesh) object.dispose();
     if (object.geometry) geometries.add(object.geometry);
     for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
       if (!material) continue;
@@ -55,8 +45,40 @@ function canvasTexture(width, height, draw) {
   draw(context, width, height);
   const texture = new T.CanvasTexture(canvas);
   texture.colorSpace = T.SRGBColorSpace;
-  texture.anisotropy = 4;
+  texture.anisotropy = 8;
   return { canvas, context, texture };
+}
+
+const TEXTURE_SIZES = { low: 256, medium: 512, high: 1024 };
+
+// All materials are original and work offline. A seeded grain avoids flicker
+// and preserves exactly the same upholstery pattern at each quality setting.
+function surfaceTexture(kind, size) {
+  return canvasTexture(size, size, (context, width, height) => {
+    const pixels = context.createImageData(width, height);
+    let seed = 92747;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const nx = x / width * 512, ny = y / height * 512, noise = (seed >>> 24) / 255;
+      let value = 230;
+      if (kind === 'leather') value = 210 + noise * 38 - (Math.sin(nx * .8 + Math.sin(ny * .3)) > .87 ? 15 : 0);
+      if (kind === 'fabric') value = 177 + noise * 30 + (Math.floor(nx / 3) % 2 ? 18 : 0) + (Math.floor(ny / 3) % 2 ? 17 : 0);
+      if (kind === 'carbon') {
+        const row = Math.floor(ny / 12), column = Math.floor(nx / 12);
+        const weave = (column + row) % 4 < 2;
+        value = (weave ? 156 : 218) + 15 * Math.sin((weave ? nx : ny) * Math.PI / 3) + noise * 12;
+      }
+      if (kind === 'tread') {
+        const groove = (nx + (Math.floor(ny / 64) % 2 ? -ny : ny) * .45) % 66;
+        value = groove < 9 || ny % 128 < 8 ? 65 : 210 + noise * 33;
+      }
+      if (kind === 'metal') value = 205 + noise * 14 + Math.sin(ny * .85) * 20;
+      const index = (y * width + x) * 4;
+      pixels.data[index] = pixels.data[index + 1] = pixels.data[index + 2] = value;
+      pixels.data[index + 3] = 255;
+    }
+    context.putImageData(pixels, 0, 0);
+  });
 }
 
 // Group detailed bolts, seams, trim and upholstery by material so the richer
@@ -93,14 +115,15 @@ export function createCar(scene, options = {}) {
   root.name = 'rally-car';
   scene.add(root);
   let config = { id: 'club', color: null, tuning: {}, ...options };
-  let model, headlights = false, disposed = false;
+  let model, headlights = false, disposed = false, latestInput = {};
   const api = {
     root,
     setConfig(next = {}) {
-      const oldId = config.id;
+      const oldId = config.id, oldQuality = config.textureQuality;
       config = { ...config, ...next, tuning: { ...config.tuning, ...(next.tuning || {}) } };
-      if (next.id && next.id !== oldId) {
+      if ((next.id && next.id !== oldId) || (next.textureQuality && next.textureQuality !== oldQuality)) {
         disposeGroup(root); root.clear(); build();
+        update({...latestInput,dt:0});
       } else {
         model.paint.color.set(config.color ?? model.profile.color);
         model.tire.roughness = config.tuning.tires === 'snow' ? .96 : .9;
@@ -119,7 +142,7 @@ export function createCar(scene, options = {}) {
       if (disposed) return;
       disposed = true; disposeGroup(root); root.removeFromParent(); root.clear();
     },
-    update(input = {}) { if (!disposed) update(input); },
+    update(input = {}) { latestInput=input;if (!disposed) update(input); },
   };
 
   function build() {
@@ -129,6 +152,13 @@ export function createCar(scene, options = {}) {
     const accent = mat(profile.accent, .37, .15), dark = mat(0x171d23, .80), rubber = mat(0x101419, .94);
     const satin = mat(0x333c43, .58), silver = mat(0xbac1bf, .28, .82), rimMaterial = mat(0xe3e5dc, .35, .55);
     const blackMetal = mat(0x272e33, .33, .68), seatMaterial = mat(0x222b35, .97), beltMaterial = mat(profile.accent, .9);
+    const size = TEXTURE_SIZES[config.textureQuality] || TEXTURE_SIZES.medium;
+    const leather = surfaceTexture('leather', size), fabric = surfaceTexture('fabric', size), carbon = surfaceTexture('carbon', size), treadMap = surfaceTexture('tread', size), metal = surfaceTexture('metal', size);
+    for (const [target, map, bump] of [[dark,leather,.007],[seatMaterial,fabric,.009],[satin,carbon,.003],[rubber,treadMap,.010],[silver,metal,.0015]]) {
+      if (!map) continue;
+      target.map=map.texture;target.bumpMap=map.texture;target.bumpScale=bump;
+      map.texture.wrapS=map.texture.wrapT=T.RepeatWrapping;
+    }
     const glass = new T.MeshPhysicalMaterial({ color: 0xa9c7ca, transparent: true, opacity: .20, roughness: .07, metalness: .08, side: T.DoubleSide, depthWrite: false });
     const lampMaterial = new T.MeshStandardMaterial({ color: 0xf7f0d0, emissive: 0xffedb8, emissiveIntensity: .035, roughness: .16, metalness: .18 });
     const rearMaterial = new T.MeshStandardMaterial({ color: 0xb82c24, emissive: 0xf32a0d, emissiveIntensity: .12, roughness: .25 });
@@ -163,7 +193,7 @@ export function createCar(scene, options = {}) {
 
     // A continuous, tapered shell with real wheel openings, shoulder curvature
     // and rounded front/rear corners rather than a stack of rectangular blocks.
-    const shellPositions = [], shellIndices = [], stationCount = 100, ringCount = 18;
+    const shellPositions = [], shellIndices = [], stationCount = 120, ringCount = 30;
     function section(z) {
       const u = z / half;
       const taper = 1 - .10 * Math.pow(Math.abs(u), 5);
@@ -334,9 +364,9 @@ export function createCar(scene, options = {}) {
       const pivot = new T.Group(), spin = new T.Group();
       pivot.name = `${z < 0 ? 'front' : 'rear'}-${side < 0 ? 'left' : 'right'}-wheel`;
       pivot.position.set(side * W * .50, .385, z); pivot.add(spin); root.add(pivot);
-      const tire = mesh(spin, new T.CylinderGeometry(.355, .355, .245, 32, 1), rubber); tire.rotation.z = Math.PI / 2;
+      const tire = mesh(spin, new T.CylinderGeometry(.355, .355, .245, 64, 1), rubber); tire.rotation.z = Math.PI / 2;
       for (const face of [-1, 1]) {
-        const shoulder = mesh(spin, new T.TorusGeometry(.315, .055, 7, 32), rubber, face * .105, 0, 0);
+        const shoulder = mesh(spin, new T.TorusGeometry(.315, .055, 12, 64), rubber, face * .105, 0, 0);
         shoulder.rotation.y = Math.PI / 2;
         const sidewallRing = mesh(spin, new T.TorusGeometry(.277, .004, 4, 32), satin, face * .150, 0, 0);
         sidewallRing.rotation.y = Math.PI / 2;
@@ -360,12 +390,16 @@ export function createCar(scene, options = {}) {
       }
       tread.castShadow = true; spin.add(tread);
       const caliper = box(pivot, .04, .11, .09, side * .10, .01, .15, accent, .015);
-      wheels.push({ pivot, spin, front: z < 0, side, baseY: .385, caliper });
+      wheels.push({ pivot, spin, front: z < 0, side, baseY: .385, caliper, physicsIndex:(z < 0 ? 0 : 2)+(side>0?1:0) });
     }
 
     // The cockpit is real geometry with a clear driver's eye position. There
     // are no glass planes, arbitrary camera offsets or floating dashboard.
     box(inside, W * .85, .12, 3.0, 0, .35, .20, dark, .02);
+    // Opaque firewall and footwell enclose the cabin independently of exterior
+    // wheel/body visibility. These panels remain safely below the sight line.
+    box(inside, W * .86, .58, .09, 0, .68, -.94, dark, .045);
+    for (const side of [-1,1]) box(inside, .12, .50, 1.15, side*W*.43, .63, -.45, dark, .05);
     box(inside, .31, .37, 1.42, .08, .55, .15, satin, .03);
     box(inside, W * .84, .27, .47, 0, .95, -.62, dark, .06);
     box(inside, W * .82, .065, .42, 0, 1.103, -.65, satin, .025);
@@ -421,7 +455,8 @@ export function createCar(scene, options = {}) {
     wheelBase.position.set(-.39, 1.035, -.22); wheelBase.rotation.x = -.25; inside.add(wheelBase);
     beam(inside, new T.Vector3(-.39, .96, -.48), new T.Vector3(-.39, 1.035, -.22), .035, dark);
     const wheelSpin = new T.Group(); wheelBase.add(wheelSpin);
-    mesh(wheelSpin, new T.TorusGeometry(.235, .024, 9, 48), rubber);
+    const steeringLeather = dark.clone();steeringLeather.color.setHex(0x151b20);
+    mesh(wheelSpin, new T.TorusGeometry(.235, .024, 14, 64), steeringLeather);
     for (let k = 0; k < 3; k++) {
       const angle = k * Math.PI * 2 / 3 + Math.PI / 2;
       const spoke = box(wheelSpin, .19, .031, .025, Math.cos(angle) * .101, Math.sin(angle) * .101, 0, silver, .008);
@@ -436,6 +471,7 @@ export function createCar(scene, options = {}) {
     const handbrake = box(inside, .045, .05, .30, .20, .69, -.03, dark, .015); handbrake.rotation.x = -.3;
 
     const glove = mat(0xdfdfd2, .87), gloveDark = mat(0x222c34, .9), sleeve = mat(0x293a48, .95);
+    if(fabric){glove.map=fabric.texture;glove.bumpMap=fabric.texture;glove.bumpScale=.002;sleeve.map=fabric.texture;sleeve.bumpMap=fabric.texture;sleeve.bumpScale=.004}
     const hands = [];
     for (const sign of [-1, 1]) {
       const hand = new T.Group(); hand.name = sign < 0 ? 'left-driver-hand' : 'right-driver-hand';
@@ -444,6 +480,7 @@ export function createCar(scene, options = {}) {
       for (let f = 0; f < 4; f++) {
         const finger = box(hand, .017, .052, .028, -.031 + f * .021, .043, -.005, glove, .007); finger.rotation.x = -1.18;
         const fingertip = box(hand, .017, .026, .032, -.031 + f * .021, .038, -.040, gloveDark, .007); fingertip.rotation.x = .10;
+        mesh(hand,new T.SphereGeometry(.011,10,8),glove,-.031+f*.021,.046,.013).scale.set(1,.7,.8);
       }
       const thumb = box(hand, .025, .065, .028, -sign * .049, .016, .001, glove, .01); thumb.rotation.z = sign * .55;
       const cuff = box(hand, .092, .042, .066, 0, -.061, .028, gloveDark, .012);
@@ -488,7 +525,7 @@ export function createCar(scene, options = {}) {
     const animated = new Set([wheelBase, lever, ...hands.flatMap(hand => [hand.hand, hand.arm, hand.forearm])]);
     batchStatic(inside, animated);
     model = { profile, paint, tire: rubber, lights, lampMaterial, rearMaterial, body, cockpitShell, gauge, gaugeTick: 1, wheelBase, wheelSpin, wheels, hands, lever };
-    Object.assign(api, { exterior, inside, wheels, wheelSpin, hands, lever, cameraAnchors });
+    Object.assign(api, { exterior, inside, wheels, wheelSpin, hands, lever, cameraAnchors, textureSize:size });
     api.setHeadlights(headlights);
     root.updateMatrixWorld(true);
   }
@@ -500,7 +537,7 @@ export function createCar(scene, options = {}) {
     object.position.copy(a).add(b).multiplyScalar(.5); object.scale.y = Math.max(.001, direction.length());
     object.quaternion.setFromUnitVectors(AXIS_Y, direction.normalize());
   }
-  function update({ steer = 0, speed = 0, dt = 0, shift = 0, rpm = 900, gear = 1, brake = false, cameraMode = 0, suspension = 0, roll = 0 } = {}) {
+  function update({ steer = 0, speed = 0, dt = 0, shift = 0, rpm = 900, gear = 1, brake = false, cameraMode = 0, suspension = 0, roll = 0, wheels: wheelStates } = {}) {
     const { wheelSpin, wheels, body, hands, lever, gauge, cockpitShell } = model;
     const finiteSteer = Number.isFinite(steer) ? clamp(steer, -1, 1) : 0;
     const finiteDt = Number.isFinite(dt) ? clamp(dt, 0, .10) : 0;
@@ -508,8 +545,11 @@ export function createCar(scene, options = {}) {
     wheelSpin.rotation.z = -finiteSteer * 2.05;
     for (const wheel of wheels) {
       wheel.pivot.rotation.y = wheel.front ? -finiteSteer * .48 : 0;
-      wheel.spin.rotation.x -= finiteSpeed * finiteDt / .365;
-      wheel.pivot.position.y = wheel.baseY;
+      const wheelState=wheelStates?.[wheel.physicsIndex];
+      if(Number.isFinite(wheelState?.rotation))wheel.spin.rotation.x=-wheelState.rotation;
+      else wheel.spin.rotation.x -= finiteSpeed * finiteDt / .365;
+      wheel.pivot.position.y = wheel.baseY+clamp(Number(wheelState?.travel)||0,-.12,.12);
+      wheel.pivot.visible = cameraMode === 0;
     }
     // Suspension movement is external-only; pilot/capot cameras never inherit
     // fake shake from an animated body, steering wheel or dashboard group.

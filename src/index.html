@@ -62,13 +62,41 @@
 
     <section id="panel-options" class="menu-panel hidden">
       <div class="section-heading"><div><span class="eyebrow">À VOTRE FAÇON</span><h2>Gardez le contrôle.</h2></div><span class="subtle">Réglages enregistrés automatiquement</span></div>
-      <div class="options-layout"><div class="option-list"><label class="option-row"><div><strong>Boîte manuelle</strong><small>Maj : monter · Ctrl gauche : descendre</small></div><input type="checkbox" id="manual"></label><label class="option-row"><div><strong>Copilote</strong><small>Notes visuelles et annonces vocales si une voix française est disponible</small></div><input type="checkbox" id="copilot" checked></label><label class="option-row"><div><strong>Volume</strong><small>Moteur, pneus et copilote</small></div><input id="volume" type="range" min="0" max="100" value="72"></label><label class="option-row"><div><strong>Caméra de départ</strong><small>Changez aussi avec C ou les touches 1, 2 et 3</small></div><select id="cameraSetting"><option value="0">Poursuite</option><option value="1">Capot</option><option value="2">Cockpit</option></select></label><label class="option-row"><div><strong>Qualité graphique</strong><small>Réduisez la qualité pour gagner en fluidité</small></div><select id="quality"><option value="low">Légère</option><option value="medium" selected>Standard</option><option value="high">Élevée</option></select></label></div><aside class="controls-panel"><div class="eyebrow">MÉMO PILOTE</div><h3>Les bons réflexes.</h3><dl><div><dt>Accélérer / Freiner</dt><dd>↑ / ↓ · Z / S</dd></div><div><dt>Tourner</dt><dd>← / → · Q / D</dd></div><div><dt>Frein à main</dt><dd>Espace</dd></div><div><dt>Rapport + / −</dt><dd>Maj / Ctrl gauche</dd></div><div><dt>Boîte auto / manuelle</dt><dd>M</dd></div><div><dt>Phare allumé / éteint</dt><dd>H</dd></div><div><dt>Replacer (+5 s)</dt><dd>R</dd></div><div><dt>Pause</dt><dd>Échap</dd></div></dl></aside></div>
+      <div id="optionsForm" class="settings-grid">
+        <fieldset><legend>Conduite & caméra</legend>
+          <label class="option-row"><span>Boîte manuelle<small>Maj : rapport + · Ctrl gauche : rapport − par défaut</small></span><input type="checkbox" id="manual"></label>
+          <label class="option-row"><span>Caméra de départ</span><select id="cameraSetting"><option value="0">Poursuite</option><option value="1">Capot</option><option value="2">Pilote</option></select></label>
+          <label class="option-row"><span>Copilote vocal<small>Les notes visuelles restent affichées</small></span><input type="checkbox" id="copilot" checked></label>
+          <label class="option-row"><span>Langue du copilote</span><select id="language"><option value="fr">Français</option><option value="en">English</option><option value="de">Deutsch</option></select></label>
+          <p id="voiceStatus" class="panel-footnote" role="status"></p>
+          <label class="voice-import">Importer des voix enregistrées (.json)<input id="voiceImport" type="file" accept=".json,application/json"></label>
+          <button id="clearVoice" class="secondary">UTILISER LA VOIX FOURNIE</button>
+          <details class="voice-help"><summary>Format du pack vocal</summary><p>Un fichier JSON avec language (fr, en ou de), name, author, license et clips. Chaque clip associe une note (left2, right3, finish…) à un fichier audio encodé en data:audio/…;base64,… Les enregistrements doivent être autorisés par leur auteur. Consultez le guide du jeu pour la liste complète.</p></details>
+        </fieldset>
+        <fieldset><legend>Affichage & textures</legend>
+          <label class="option-row"><span>Mode d’affichage</span><select id="windowMode"><option value="windowed">Fenêtré</option><option value="fullscreen">Plein écran</option></select></label>
+          <label class="option-row"><span>Résolution de rendu<small>Automatique suit la fenêtre ; les autres choix règlent le nombre de pixels calculés.</small></span><select id="resolution"><option value="native">Automatique</option><option value="1280x720">1280 × 720</option><option value="1600x900">1600 × 900</option><option value="1920x1080">1920 × 1080</option><option value="2560x1440">2560 × 1440</option></select></label>
+          <label class="option-row"><span>Qualité graphique<small>Ombres et densité de rendu automatique</small></span><select id="quality"><option value="low">Légère</option><option value="medium" selected>Standard</option><option value="high">Élevée</option></select></label>
+          <label class="option-row"><span>Qualité des textures<small>Sol, pneus, cuir et tissu : 256 / 512 / 1024 px</small></span><select id="textureQuality"><option value="low">Légère</option><option value="medium" selected>Standard</option><option value="high">Élevée</option></select></label>
+          <p id="displayStatus" class="panel-footnote" role="status"></p>
+        </fieldset>
+        <fieldset><legend>Mixage audio</legend>
+          <label class="option-row"><span>Volume général</span><input id="volume" type="range" min="0" max="100" value="72"><output for="volume"></output></label>
+          <label class="option-row"><span>Musique House</span><input id="musicVolume" type="range" min="0" max="100" value="22"><output for="musicVolume"></output></label>
+          <label class="option-row"><span>Moteur</span><input id="engineVolume" type="range" min="0" max="100" value="100"><output for="engineVolume"></output></label>
+          <label class="option-row"><span>Copilote</span><input id="copilotVolume" type="range" min="0" max="100" value="100"><output for="copilotVolume"></output></label>
+          <label class="option-row"><span>Effets & pneumatiques</span><input id="effectsVolume" type="range" min="0" max="100" value="75"><output for="effectsVolume"></output></label>
+          <p class="panel-footnote">Musique originale jouée dans le menu et en conduite. Le mixage baisse pendant les annonces du copilote.</p>
+        </fieldset>
+        <fieldset class="keybindings"><legend>Commandes</legend><p class="panel-footnote">Cliquez sur une touche puis appuyez sur sa nouvelle commande. Retour arrière / Suppr : retirer ; Échap : annuler. Jusqu’à trois touches par action.</p><div id="bindings"></div><p id="bindingStatus" role="status" aria-live="polite"></p><button id="resetBindings" class="secondary">RÉTABLIR LES TOUCHES PAR DÉFAUT</button></fieldset>
+      </div>
     </section>
   </main>
   <div class="menu-footer"><span><i></i> JEU LOCAL · HORS LIGNE</span><span id="status" role="status">PRÉPARATION DU GARAGE…</span><span>RALLY HORIZON / FIRST EDITION</span></div>
 </section>
 
-<section id="pauseMenu" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle"><div class="panel compact"><div class="eyebrow">UN INSTANT AU STAND</div><h2 id="pauseTitle">EN PAUSE.</h2><p>La spéciale vous attend.</p><button id="resume" class="primary">REPRENDRE →</button><button id="quit" class="secondary">RETOUR AU MENU</button><small>Revenir au menu abandonne la spéciale en cours.</small></div></section>
+<section id="pauseMenu" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle"><div class="panel compact"><div class="eyebrow">UN INSTANT AU STAND</div><h2 id="pauseTitle">EN PAUSE.</h2><p>La spéciale vous attend.</p><button id="resume" class="primary">REPRENDRE →</button><button id="restart" class="secondary">RECOMMENCER LA SPÉCIALE</button><button id="pauseSettings" class="secondary">PARAMÈTRES</button><button id="quit" class="secondary">RETOUR AU MENU</button><small>Revenir au menu abandonne la spéciale en cours.</small></div></section>
+<section id="settingsOverlay" class="overlay hidden settings-overlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="panel settings-panel"><header><div><div class="eyebrow">RÉGLAGES EN COURSE</div><h2 id="settingsTitle">PARAMÈTRES.</h2></div><button id="closeSettings" class="secondary">RETOUR À LA PAUSE</button></header><div id="settingsContent"></div></div></section>
 <section id="result" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="resultTitle"><div class="panel result-panel"><div class="eyebrow" id="resultTitle">SPÉCIALE TERMINÉE</div><h2 id="resultTime" class="result-time">00:00.00</h2><p id="resultInfo"></p><div id="standings"></div><div class="result-actions"><button class="primary" id="continue">SPÉCIALE SUIVANTE →</button><button id="again" class="secondary">REJOUER</button><button id="home" class="secondary">RETOUR AU MENU</button></div></div></section>
 <script src="game.js"></script>
 </body>

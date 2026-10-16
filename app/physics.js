@@ -72,11 +72,11 @@ function advance(s, input, dt, context) {
   const inertia = mass * wheelbase * wheelbase * .24, wheelRadius = .34;
   const wetness = clamp(finite(context.wetness), 0, 1);
   const roughness = clamp(finite(context.roughness, surface.roughness), 0, 1);
-  const slope = clamp(finite(context.slope), -.60, .60);
+  const slope = clamp(finite(context.slope), -1.35, 1.35), crossSlope=clamp(finite(context.crossSlope),-1.35,1.35);
   s.offroad = Boolean(context.offroad);
   const grip = surface.grip * tires[surfaceName] * (1 - wetness * surface.wet)
     * (s.offroad ? .68 : 1) * finite(context.legacyGrip, 1);
-  const normal = mass * gravity * Math.cos(slope);
+  const normal = mass * gravity / Math.sqrt(1+Math.tan(slope)**2+Math.tan(crossSlope)**2);
 
   s.shiftRemaining = Math.max(0, finite(s.shiftRemaining) - dt);
   s.collision = Math.max(0, finite(s.collision) - dt);
@@ -149,9 +149,13 @@ function advance(s, input, dt, context) {
   const rolling = surface.rolling + (s.offroad ? .065 : 0) + roughness * .004;
   const resistance = normal * rolling + .46 * forward * forward + (surfaceName === 'sand' ? speed * 16 : 0);
   if (speed > .001) longitudinalForce -= Math.sign(forward) * Math.min(resistance, speed * mass / dt);
-  longitudinalForce -= mass * gravity * Math.sin(slope);
+  const downhillForce=-normal*Math.tan(slope);
+  longitudinalForce += downhillForce;
+  // A handbrake can hold a parked car only while the tires can support the
+  // downslope force. Steep snow banks still overcome the available grip.
+  if(s.handbrake&&speed<.15)longitudinalForce-=clamp(longitudinalForce,-availableTraction*.8,availableTraction*.8);
   const longitudinalAcceleration = longitudinalForce / mass;
-  const lateralAcceleration = lateralForce / mass;
+  const lateralAcceleration = (lateralForce-normal*Math.tan(crossSlope)) / mass;
   // Rotation follows tire force moments, with extra damping only at parking speed.
   const omegaNext = clamp(omega + ((frontForce * frontArm - rearForce * rearArm) / inertia - omega * (2.4 / (1 + speed * .5))) * dt, -2.5, 2.5);
   s.yawRate = -omegaNext;
