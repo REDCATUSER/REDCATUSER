@@ -81,6 +81,12 @@ function makeRoute(stage, palette) {
   return { curve, samples, distances, length: distances.at(-1), atZ };
 }
 
+export function getStagePreview(stage){
+ const route=makeRoute(stage,palettes[stage.region]||palettes.france),points=route.curve.getSpacedPoints(100);
+ let ascent=0;for(let i=1;i<points.length;i++)ascent+=Math.max(0,points[i].y-points[i-1].y);
+ return{points:points.map(p=>({x:p.x,y:p.y,z:p.z})),length:route.length,ascent:Math.round(ascent)};
+}
+
 export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
   let textureQuality=options.textureQuality||'medium';const textured=[];
   function texturedMaterial(color,textureKind,seed,extra={}){
@@ -106,6 +112,28 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
   const fogNear = kind === 'fog' ? 75 : kind === 'night' ? 80 : kind === 'snow' || kind === 'rain' || kind === 'dust' ? 115 : 240;
   const fogFar = kind === 'fog' ? 420 : kind === 'night' ? 460 : kind === 'dust' ? 650 : 940;
   scene.fog = new T.Fog(sky, fogNear, fogFar);
+
+  // A continuous gradient sky and a separate distant relief frame the route.
+  // They never replace the drivable height field or its collision sampling.
+  let skyDome=null;
+  if(typeof document!=='undefined'){
+    const c=document.createElement('canvas');c.width=16;c.height=256;const g=c.getContext('2d'),gradient=g.createLinearGradient(0,0,0,256);
+    const top=sky.clone().multiplyScalar(kind==='night'?.6:.72),horizon=sky.clone().lerp(new T.Color(0xf0e3c8),kind==='sun'?.26:.12);
+    gradient.addColorStop(0,'#'+top.getHexString());gradient.addColorStop(.53,'#'+sky.getHexString());gradient.addColorStop(1,'#'+horizon.getHexString());g.fillStyle=gradient;g.fillRect(0,0,16,256);
+    const map=new T.CanvasTexture(c);map.colorSpace=T.SRGBColorSpace;
+    skyDome=new T.Mesh(new T.SphereGeometry(1100,24,16),new T.MeshBasicMaterial({map,side:T.BackSide,depthWrite:false,fog:false}));skyDome.name='gradient-sky';skyDome.renderOrder=-100;skyDome.frustumCulled=false;root.add(skyDome);
+  }
+  if(stage.region!=='dakar'&&stage.region!=='france')for(const side of [-1,1]){
+    const vertices=[],colors=[],indices=[],ridgeColor=new T.Color(palette.rock).lerp(sky,.22);
+    for(let i=0;i<=48;i++){
+      const z=260-i/48*(Math.abs(samples.at(-1).z)+520),valley=atZ(z),wave=Math.sin(i*1.74+index)*.5+Math.sin(i*.63+side)*.35;
+      const x=valley.x+side*(470+Math.sin(i*.77)*70),y=valley.y+90+palette.relief*420+wave*85;
+      for(const [px,py]of [[x-side*200,valley.y-12],[x,y],[x+side*280,y-55]]){vertices.push(px,py,z);const snow=stage.region==='alps'&&py>y-8,c=snow?new T.Color(0xdde6e8):ridgeColor.clone().multiplyScalar(.8+Math.sin(i*.77)*.12);colors.push(c.r,c.g,c.b)}
+      if(i){const k=i*3;for(let j=0;j<2;j++)indices.push(k+j,k-3+j,k+j+1,k+j+1,k-3+j,k-2+j)}
+    }
+    const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(vertices,3));geo.setAttribute('color',new T.Float32BufferAttribute(colors,3));geo.setIndex(indices);geo.computeVertexNormals();
+    const ridge=new T.Mesh(geo,material(0xffffff,{vertexColors:true,side:T.DoubleSide}));ridge.name='distant-ridge';root.add(ridge);
+  }
 
   function nearest(x, z) {
     const approximate = atZ(z).index;
@@ -186,8 +214,8 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
     const y = heightAt(p.x, p.z), scale = .75 + rand() * 1.15, desert = stage.region === 'dakar', tall = (desert ? 4.2 : 7.2) * scale;
     instance(trunks, i, p.x, y + tall * .43, p.z, scale, tall * .86, scale);
     for (let j = 0; j < 5; j++) {
-      const a = j * 2.4 + rand(), spread = j === 4 ? .2 : 1.7 * scale, wide = (desert ? 2.4 : 2) * scale;
-      instance(leaves, i * 5 + j, p.x + Math.cos(a) * spread, y + tall * (.56 + j * .07), p.z + Math.sin(a) * spread, wide, (desert ? .75 : 2.15) * scale, wide * .85, a);
+      const conifer=stage.region==='alps'||stage.region==='usa',a = j * 2.4 + rand(), spread = conifer?.16*scale:j === 4 ? .2 : 1.7 * scale, wide = (conifer?2.2-j*.36:desert ? 2.4 : 2) * scale;
+      instance(leaves, i * 5 + j, p.x + Math.cos(a) * spread, y + tall * (conifer?.39+j*.125:.56+j*.07), p.z + Math.sin(a) * spread, wide, (conifer?.85:desert ? .75 : 2.15) * scale, wide * .85, a);
       leaves.setColorAt(i * 5 + j, new T.Color(palette.foliage).multiplyScalar(.82 + rand() * .35));
     }
     for (let j = 0; j < 3; j++) {
@@ -303,6 +331,17 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
     gates.push({group,material:m,point:p.clone(),yaw,distance:distances[sampleIndex],index:sampleIndex});
   }
   const notes=[];let lastNote=-100;
+  // Small spectator areas at selected sectors bring the rally service crews
+  // to life. People remain behind the barriers and do not obstruct the road.
+  const peopleCount=54,people=new T.InstancedMesh(new T.CylinderGeometry(.21,.25,.75,8),material(0xffffff),peopleCount),heads=new T.InstancedMesh(new T.SphereGeometry(.16,10,8),material(0xc79d79),peopleCount),legs=new T.InstancedMesh(new T.CylinderGeometry(.095,.09,.65,7),material(0x293b40),peopleCount*2);
+  people.name='spectator-jackets';
+  for(let i=0;i<peopleCount;i++){
+    const gate=2+Math.floor(i/18)*2,baseIndex=worldIndex(gate),p=roadsidePoint(baseIndex+(i%6)*2,1,halfWidth+4+(i%3)*1.1),y=heightAt(p.x,p.z);
+    instance(people,i,p.x,y+1.08,p.z,1,1,1,p.yaw);people.setColorAt(i,new T.Color([0xdc6b3e,0xe1d8b1,0x4d7c91,0x72885e][i%4]));instance(heads,i,p.x,y+1.64,p.z);
+    for(const side of [-1,1])instance(legs,i*2+(side>0?1:0),p.x+side*.13,y+.34,p.z,1,1,1,p.yaw);
+  }
+  function worldIndex(gate){return gates[gate].index}
+  root.add(people,heads,legs);
   for(let i=30;i<samples.length-35;i+=8) {
     if(distances[i]>length-200)break;
     if(distances[i]-lastNote<105)continue;
@@ -324,6 +363,7 @@ export function makeWorld(scene, stage = STAGES[0], index = 0, options={}) {
     precipitation.frustumCulled=false;root.add(precipitation);
   }
   function update(dt,carPosition,elapsed=0) {
+    if(skyDome&&carPosition)skyDome.position.copy(carPosition);
     if(precipitation&&carPosition) {
       precipitation.position.set(carPosition.x,carPosition.y??heightAt(carPosition.x,carPosition.z),carPosition.z);
       const fall=kind==='snow'?3.2:23;

@@ -2,11 +2,13 @@
 
 Jeu de rallye 3D en français, hors ligne, pour Windows 10/11 x64. Cette édition remplace les boucles par des spéciales de point à point et ajoute carrière, garage, copilote et nouveaux véhicules. Les routes et modèles sont des créations procédurales inspirées du rallye ; il ne s’agit pas de reproductions photographiques ou de parcours géographiques exacts.
 
-Version **4.0** : cockpit, matériaux, dévers, paramètres en pause, remappage et audio multilingue. Captures réelles du jeu en qualité légère :
+Version **5.0 — Driver Update** : présentation 3D dans le menu, carrosseries et éclairage retravaillés, reliefs lointains et conifères, manettes, médailles, fantôme personnel, secteurs, dégâts et niveaux d’adversaires.
 
-![Garage et modèle 3D](docs/garage-v4.png)
+![Menu 3D de la version 5](docs/menu-v5.png)
 
-![Vue pilote avec volant et mains](docs/cockpit-v4.png)
+![Vue pilote avec volant et mains](docs/cockpit-v5.png)
+
+![Garage et Audi Quattro](docs/garage-v5.png)
 
 
 ## Télécharger et installer
@@ -37,11 +39,27 @@ Les cinq championnats sont **Alpes, Dakar, France, Monte-Carlo et États-Unis**,
 
 La voiture initiale est la Horizon Club 1600. Les six silhouettes sont des modèles procéduraux originaux ; elles ne proviennent pas de scans de constructeurs. La Roumanie est accessible en spéciale libre. Une course libre ne supprime pas le championnat en cours ; le menu permet de reprendre la prochaine spéciale non terminée.
 
+## Contre-la-montre, médailles et fantôme
+
+Chaque spéciale possède des objectifs **or, argent et bronze**, indiqués avant le départ. Les anciens records obtiennent automatiquement la médaille correspondante. Le résultat détaille les neuf secteurs et signale un nouveau record. En course, le passage d’un checkpoint affiche le secteur et l’écart avec votre record de cette spéciale.
+
+Un passage complet, sans replacement ni changement de réglage de conduite pendant la course, peut enregistrer un **fantôme cyan**. Il reproduit vos positions et votre orientation, sans collision ni son moteur supplémentaire. Il est conservé dans IndexedDB pour la même spéciale, voiture, pneus, suspension, étagement, boîte, aide de stabilité et option de dégâts. La couleur de carrosserie et la caméra ne changent pas cette configuration. L’écart en direct compare votre progression au même point du tracé. Les enregistrements plus lents conservent le meilleur fantôme ; un replacement ou une modification de la conduite annule uniquement l’enregistrement de la tentative en cours.
+
+Les fantômes sont locaux, sans classement en ligne ni compte. Leur enregistrement est limité à quinze minutes par passage ; un stockage indisponible n’empêche pas de jouer. Les temps de carrière restent distincts des données de trajectoire. Un ancien record sans trajectoire reste valable et il faudra effectuer un nouveau passage pour créer un fantôme.
+
+## Manette, aide et difficulté
+
+Les manettes exposées comme **standard** par Windows / Chromium sont prises en charge : stick gauche pour la direction, RT / LT pour accélérer / freiner, A pour le frein à main, RB / LB pour monter / descendre les rapports, Y pour la caméra, X pour replacer, B pour les phares et Start pour la pause. La croix directionnelle et A parcourent les boutons des menus ; LB / RB changent d’onglet. Zone morte, sensibilité et vibrations sont réglables. Les vibrations dépendent du périphérique et de son pilote. Aucun volant à retour de force n’est revendiqué.
+
+Une déconnexion pendant la course met le jeu en pause. Après une pause, relâcher les commandes permet de réarmer la manette et évite une accélération involontaire. Dans le navigateur, un premier clic peut être nécessaire pour activer le son. Les commandes clavier et leur remappage restent disponibles.
+
+Les aides **Détente, Sport et Expert** règlent la correction du lacet dans les glissades. Les adversaires au classement ont trois niveaux : **Amateur, Club, Pro** ; leur niveau est fixé au départ d’un championnat pour garder le classement cohérent entre ses trois spéciales. Les dégâts mécaniques optionnels réduisent progressivement la puissance après un contact, jusqu’à 18 % au maximum ; le départ d’une nouvelle spéciale répare la voiture. L’état est visible au tableau de bord. La poussière sur la carrosserie est cosmétique et se nettoie au départ suivant.
+
 ## Garage et physique
 
 Le châssis suit quatre points de contact : tangage et roulis correspondent aux pentes sous les roues. La gravité agit aussi en dévers, la charge normale diminue avec la pente, et une montée trop raide sur neige provoque un recul. La traction utilise une limite d’adhérence partagée entre accélération et forces latérales ; le frein à main libère l’arrière. Le relief reste un modèle de contact au sol, sans simulation complète des tonneaux et sauts.
 
-Choisir une voiture débloquée, la couleur, les pneus (asphalte/gravier/neige/sable), la suspension et l’étagement de boîte. Les réglages influencent réellement la conduite : adhérence, relances, résistance au roulement, débattement et régime moteur. Le modèle utilise des forces de pneus avant/arrière, une inertie de lacet, la charge et le glissement des roues, les bosses et la pente. La neige reste glissante, les pneus neige améliorent la motricité, et le sable oppose davantage de résistance. Il s’agit d’une conduite de jeu évoluée, pas d’une simulation automobile professionnelle.
+Choisir une voiture débloquée, la couleur, les pneus (asphalte/gravier/neige/sable), la suspension et l’étagement de boîte. Les réglages influencent réellement la conduite : adhérence, relances, résistance au roulement, débattement et régime moteur. Les tractions, propulsions et quatre roues motrices utilisent une répartition différente de la charge motrice et de l’adhérence en accélération. Le modèle utilise des forces de pneus avant/arrière, une inertie de lacet, la charge et le glissement des roues, les bosses et la pente. La neige reste glissante, les pneus neige améliorent la motricité, et le sable oppose davantage de résistance. Il s’agit d’une conduite de jeu évoluée, pas d’une simulation automobile professionnelle.
 
 ## Paramètres et pause
 
@@ -52,7 +70,7 @@ Choisir une voiture débloquée, la couleur, les pneus (asphalte/gravier/neige/s
 - Audio : volume général et volumes indépendants musique, moteur, copilote, effets/pneus. Les quatre canaux sont effectivement séparés.
 - Commandes : toutes les actions du clavier peuvent être remappées, avec trois touches par action et contrôle des conflits. Cliquer une case, appuyer sur la nouvelle touche ; Retour arrière / Suppr retire l’affectation, Échap annule. Le bouton de pause reste accessible même si sa touche a été retirée.
 
-La sauvegarde v3 est conservée : voitures, records et championnat en cours restent utilisables après la mise à jour. Les nouveaux réglages prennent leurs valeurs par défaut à la première ouverture.
+La sauvegarde des versions 3 et 4 est conservée : voitures, records et championnat en cours restent utilisables après la mise à jour. Les nouveaux réglages prennent leurs valeurs par défaut à la première ouverture.
 
 ## Commandes
 
@@ -108,7 +126,7 @@ Attributions et licences : `THIRD_PARTY_NOTICES.txt` et `src/audio/LICENSE.txt`.
 Node.js 22 ou ultérieur. `npm ci`, puis :
 
 - `npm test` : tests de physique, véhicules, carrière, checkpoints, copilote et 18 spéciales.
-- `npm run test:browser` : contrôles d’interface Chromium (navigateur système ou `npx playwright install chromium` ; chemin possible via `RALLY_BROWSER`).
+- `npm run test:browser` : contrôles d’interface, fantôme, secteurs, collisions et manette simulée dans Chromium (navigateur système ou `npx playwright install chromium` ; chemin possible via `RALLY_BROWSER`).
 - `npm run build` : compiler `app/` vers `src/game.js` et générer `dist/Rally-Horizon-3D.html` avec code, sons et notices intégrés.
 - `npm run test:offline` : vérifier le HTML généré avec le réseau désactivé, y compris moteur, musique, copilote et WAV sources sous GPL. Si la politique du navigateur interdit `file://`, le test exécute le contenu HTML exact en mémoire et le signale ; cela ne valide pas une navigation `file://` dans cet environnement.
 - `npm start` : lancer Electron avec interface graphique.
@@ -120,3 +138,5 @@ Sous environnement Linux avec répertoire utilisateur en lecture seule : `npm ci
 Les tests couvrent aussi la migration des réglages, les dévers, le recul sur pente trop raide, les packs multilingues et la validation des imports.
 
 Les tests de progression utilisent notamment des placements contrôlés aux checkpoints pour vérifier les états de course. Ils ne remplacent pas le pilotage physique d’une spéciale entière. Les contrôles de navigateur vérifient le rendu, les caméras fixées au véhicule, les touches, le signal audio et la persistance. Réglage graphique **Légère** disponible pour diminuer la résolution et désactiver les ombres.
+
+Le logo Windows (installateur, raccourcis et fenêtre) est original et reproductible avec `node scripts/icon.mjs`. Les captures sont issues du jeu ; elles ne constituent pas une promesse de rendu photoréaliste.

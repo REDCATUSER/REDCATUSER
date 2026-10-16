@@ -16,6 +16,8 @@ window.__raceCheck={
  placeOnRoad(index){const p=world.samples[index],q=world.samples[index+1];resetDynamics(state);state.x=p.x;state.z=p.z;state.yaw=Math.atan2(-(q.x-p.x),-(q.z-p.z));race.resetPosition(state.x,state.z)},
  gates(){return world.gates.length},
  voiceReady(){return copilot.voiceReady},
+ async seedGhost(){const frames=Array.from({length:121},(_,i)=>{const n=Math.min(world.samples.length-2,Math.floor(i/120*(world.samples.length-1))),p=world.samples[n],q=world.samples[n+1];return[i*.5,p.x,p.z,Math.atan2(-(q.x-p.x),-(q.z-p.z)),world.length*i/120]});await saveGhost({version:5,key:runKey,time:60,car:carSpec().id,frames,splits:Array.from({length:9},(_,i)=>(i+1)*60/9),created:Date.now()})},
+ impact(){const o=world.barriers[0],near=world.nearest(o.x,o.z),d=Math.hypot(o.x-near.point.x,o.z-near.point.z),nx=(o.x-near.point.x)/d,nz=(o.z-near.point.z)/d;resetDynamics(state);state.x=o.x-nx;state.z=o.z-nz;state.vx=nx*25;state.vz=nz*25;tick(.001)},
  diagnostics(){return {keys:[...keys],countdown,audioReady:audio.ready,musicReady:music.ready,engineGain:audio.engineBus?.gain.value,effectsGain:audio.effectsBus?.gain.value,voice:copilot.language}}
 };`;
 (async()=>{
@@ -37,7 +39,9 @@ window.__raceCheck={
   const wait=fn=>page.waitForFunction(fn,null,{timeout:45000}).catch(async e=>{console.error('Browser diagnostics',await page.evaluate(()=>({state:window.rallyState,details:window.__raceCheck?.diagnostics()})),errors);await page.screenshot({path:'/tmp/rally-browser-failure.png'}).catch(()=>{});throw e});
   await wait(()=>window.rallyState);
   assert.equal(await page.evaluate(()=>rallyState.mode),'menu');
+  if(process.env.RALLY_CAPTURE)await page.screenshot({path:'/tmp/rally-v5-menu.png'});
   assert.equal(await page.locator('#hud').isVisible(),false);
+  assert.equal(await page.locator('#heroPreview #game').count(),1);await page.click('#helpButton');assert.equal(await page.locator('#helpOverlay').isVisible(),true);await page.click('#closeHelp');
   assert.equal(await page.locator('#championships button').count(),5);
   assert.equal(await page.locator('#cars button:disabled').count(),5);
   await page.locator('[data-tab=options]').click();
@@ -47,8 +51,9 @@ window.__raceCheck={
   await page.locator('[data-tab=free]').click();await page.click('#start');
   await page.keyboard.down('ArrowUp');await wait(()=>rallyState.mode==='race'&&rallyState.speed>2);await page.keyboard.up('ArrowUp');
   await wait(()=>rallyState.audio&&rallyState.audioLevel>.001&&__raceCheck.voiceReady());
-  assert.equal(await page.evaluate(()=>rallyState.visibleWheels),0);
+  assert.equal(await page.evaluate(()=>rallyState.visibleWheels),0);assert.equal(await page.evaluate(()=>rallyState.fov),82);
   await wait(()=>rallyState.musicReady);
+  if(process.env.RALLY_CAPTURE)await page.screenshot({path:'/tmp/rally-v5-cockpit.png'});
   const local=await page.evaluate(()=>rallyState.cameraLocal);
   await page.evaluate(()=>__raceCheck.placeOnRoad(80));await page.waitForTimeout(100);
   const moved=await page.evaluate(()=>rallyState.cameraLocal);
@@ -88,11 +93,20 @@ window.__raceCheck={
   assert.equal(await page.evaluate(()=>rallyState.musicLevel),0);assert.equal(await page.evaluate(()=>rallyState.mix.copilot),0);
   await page.keyboard.press('Escape');await page.click('#pauseSettings');await range('engineVolume',0);await page.click('#closeSettings');await page.click('#resume');await wait(()=>rallyState.audioLevel<.0001);
   await page.keyboard.press('Escape');await page.click('#restart');assert.equal(await page.evaluate(()=>rallyState.mode),'countdown');assert.equal(await page.evaluate(()=>rallyState.elapsed),0);assert.equal(await page.evaluate(()=>rallyState.completed),0);
-  await page.keyboard.press('Escape');await page.click('#quit');await page.locator('[data-tab=championship]').click();await page.click('#startChampionship');
+  await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>rallyState.damage),0);
+  await page.click('#resume');await page.evaluate(()=>__raceCheck.skipCountdown());
+  await page.evaluate(()=>__raceCheck.impact());assert.ok(await page.evaluate(()=>rallyState.damage>0));
+  await page.keyboard.press('Escape');await page.click('#restart');await page.evaluate(()=>__raceCheck.seedGhost());
+  await page.keyboard.press('Escape');await page.click('#restart');await wait(()=>rallyState.ghostReady);
+  await page.evaluate(()=>{__raceCheck.skipCountdown();window.testPad={connected:true,mapping:'standard',axes:[0,0],buttons:Array.from({length:16},()=>({value:0}))};Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[window.testPad]})});
+  await wait(()=>rallyState.controller);await page.evaluate(()=>{testPad.axes[0]=.45;testPad.buttons[7].value=.7});
+  await wait(()=>rallyState.controller&&rallyState.speed>1&&rallyState.steer>.1);await wait(()=>rallyState.ghostVisible);
+  await page.evaluate(()=>testPad.connected=false);await wait(()=>rallyState.mode==='paused');await page.evaluate(()=>Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[]}));
+  await page.click('#quit');await page.locator('[data-tab=championship]').click();await page.click('#startChampionship');
   await page.evaluate(()=>{__raceCheck.skipCountdown();__raceCheck.gate(__raceCheck.gates()-1)});
   assert.equal(await page.evaluate(()=>rallyState.completed),0);
   await page.keyboard.press('KeyR');assert.ok((await page.evaluate(()=>rallyState.elapsed))>=5);
-  await page.evaluate(()=>__raceCheck.finish(120));assert.equal(await page.locator('#standings tbody tr').count(),7);
+  await page.evaluate(()=>__raceCheck.finish(120));assert.equal(await page.locator('#standings tbody tr').count(),7);assert.match(await page.locator('#resultMedal').textContent(),/OR/);assert.equal(await page.locator('.sector-grid>div').count(),9);
   await page.click('#continue');assert.equal(await page.evaluate(()=>rallyState.career.active.stageIndex),1);
   await page.keyboard.press('Escape');await page.click('#quit');
   const active=await page.evaluate(()=>JSON.stringify(rallyState.career.active));
@@ -107,10 +121,11 @@ window.__raceCheck={
   assert.equal(await page.evaluate(()=>rallyState.career.unlockedCars.length),6);
   await page.locator('[data-tab=garage]').click();await page.locator('[data-car=quattro]').click();
   assert.equal(await page.evaluate(()=>rallyState.career.selectedCar),'quattro');
+  if(process.env.RALLY_CAPTURE){await page.locator('[data-tab=options]').click();await page.selectOption('#quality','medium');await page.locator('[data-tab=garage]').click();await page.screenshot({path:'/tmp/rally-v5-garage.png'})}
   await page.reload();await wait(()=>window.rallyState);assert.equal(await page.evaluate(()=>rallyState.career.selectedCar),'quattro');
   assert.equal(await page.evaluate(()=>rallyState.career.settings.bindings.shiftUp[0]),'PageUp');assert.equal(await page.evaluate(()=>rallyState.career.settings.textureQuality),'high');
   assert.deepEqual(errors,[]);
-  console.log('PASS browser: main menu, garage/settings, countdown, rigid cameras, Shift/Ctrl, lights, audio/voice, checkpoints, pause, free/career resume, all rewards, pause settings/restart, independent audio buses, render resolution, fullscreen, high textures, key conflicts/remapping, FR/EN/DE and voice import.');
+  console.log('PASS browser: main menu, garage/settings, countdown, rigid cameras, Shift/Ctrl, lights, audio/voice, checkpoints, pause, free/career resume, all rewards, pause settings/restart, independent audio buses, render resolution, fullscreen, high textures, key conflicts/remapping, FR/EN/DE and voice import, medals/sectors, ghost storage/playback, collision damage, analog gamepad and safe disconnect.');
   console.log('Career finish checks use controlled checkpoint placements, not a complete physical driving test.');
  }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(e=>{console.error(e);if(process.env.GITHUB_ACTIONS)console.error('::error::'+String(e.message).replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A'));process.exit(1)});

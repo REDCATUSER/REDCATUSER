@@ -6,6 +6,12 @@ RequestExecutionLevel user
 InstallDir "$LOCALAPPDATA\Programs\Rally Horizon 3D"
 InstallDirRegKey HKCU "Software\RallyHorizon3D" "InstallDir"
 !define MUI_ABORTWARNING
+!ifndef MUI_ICON
+  !define MUI_ICON "${PROJECT_DIR}/build/icon.ico"
+!endif
+!ifndef MUI_UNICON
+  !define MUI_UNICON "${PROJECT_DIR}/build/icon.ico"
+!endif
 !define MUI_FINISHPAGE_RUN "$INSTDIR\Rally Horizon.exe"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -27,15 +33,15 @@ Section "Rally Horizon 3D"
   !insertmacro InstallRallyFiles
   WriteUninstaller "$INSTDIR\Desinstaller.exe"
   CreateDirectory "$SMPROGRAMS\Rally Horizon 3D"
-  CreateShortcut "$SMPROGRAMS\Rally Horizon 3D\Rally Horizon 3D.lnk" "$INSTDIR\Rally Horizon.exe"
+  CreateShortcut "$SMPROGRAMS\Rally Horizon 3D\Rally Horizon 3D.lnk" "$INSTDIR\Rally Horizon.exe" "" "$INSTDIR\resources\rally.ico"
   CreateShortcut "$SMPROGRAMS\Rally Horizon 3D\Desinstaller.lnk" "$INSTDIR\Desinstaller.exe"
-  CreateShortcut "$DESKTOP\Rally Horizon 3D.lnk" "$INSTDIR\Rally Horizon.exe"
+  CreateShortcut "$DESKTOP\Rally Horizon 3D.lnk" "$INSTDIR\Rally Horizon.exe" "" "$INSTDIR\resources\rally.ico"
   WriteRegStr HKCU "Software\RallyHorizon3D" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RallyHorizon3D" "DisplayName" "Rally Horizon 3D"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RallyHorizon3D" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RallyHorizon3D" "Publisher" "REDCATUSER"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RallyHorizon3D" "UninstallString" '"$INSTDIR\Desinstaller.exe"'
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RallyHorizon3D" "DisplayIcon" "$INSTDIR\Rally Horizon.exe"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RallyHorizon3D" "DisplayIcon" "$INSTDIR\resources\rally.ico"
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RallyHorizon3D" "NoModify" 1
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\RallyHorizon3D" "NoRepair" 1
 SectionEnd

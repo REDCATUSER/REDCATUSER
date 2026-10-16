@@ -12,7 +12,8 @@ export const DEFAULT_BINDINGS = {
 };
 export const RESOLUTIONS=['native','1280x720','1600x900','1920x1080','2560x1440'];
 export const DEFAULT_SETTINGS={manual:false,camera:0,volume:72,copilot:true,quality:'medium',textureQuality:'medium',
-  resolution:'native',windowMode:'windowed',language:'fr',musicVolume:22,engineVolume:100,copilotVolume:100,effectsVolume:75,bindings:DEFAULT_BINDINGS};
+  resolution:'native',windowMode:'windowed',language:'fr',musicVolume:22,engineVolume:100,copilotVolume:100,effectsVolume:75,
+  ghost:true,gamepad:true,vibration:true,damage:true,assist:'sport',ai:'club',deadzone:12,sensitivity:100,bindings:DEFAULT_BINDINGS};
 export function validKey(code){return typeof code==='string'&&/^(Key[A-Z]|Digit[0-9]|Arrow(Up|Down|Left|Right)|Space|Escape|Shift(Left|Right)|Control(Left|Right)|Alt(Left|Right)|Tab|Enter|Backspace|Delete|Insert|Home|End|Page(Up|Down)|F([1-9]|1[0-2])|Numpad[0-9]|Numpad(Add|Subtract|Multiply|Divide|Decimal|Enter)|Comma|Period|Slash|Semicolon|Quote|Bracket(Left|Right)|Backslash|Minus|Equal|Backquote|CapsLock)$/.test(code)}
 export function normalizeBindings(value){
   const used=new Set(),result={};
@@ -25,7 +26,7 @@ export function normalizeBindings(value){
 }
 export function normalizeSettings(value={}){
   const out={...DEFAULT_SETTINGS,bindings:normalizeBindings(value?.bindings)};
-  for(const field of ['manual','copilot'])if(typeof value?.[field]==='boolean')out[field]=value[field];
+  for(const field of ['manual','copilot','ghost','gamepad','vibration','damage'])if(typeof value?.[field]==='boolean')out[field]=value[field];
   if([0,1,2].includes(value?.camera))out.camera=value.camera;
   for(const field of ['volume','musicVolume','engineVolume','copilotVolume','effectsVolume'])
     if(typeof value?.[field]==='number'&&Number.isFinite(value[field]))out[field]=Math.max(0,Math.min(100,value[field]));
@@ -33,6 +34,10 @@ export function normalizeSettings(value={}){
   if(RESOLUTIONS.includes(value?.resolution))out.resolution=value.resolution;
   if(['windowed','fullscreen'].includes(value?.windowMode))out.windowMode=value.windowMode;
   if(['fr','en','de'].includes(value?.language))out.language=value.language;
+  if(['comfort','sport','expert'].includes(value?.assist))out.assist=value.assist;
+  if(['casual','club','pro'].includes(value?.ai))out.ai=value.ai;
+  if(Number.isFinite(value?.deadzone))out.deadzone=Math.max(0,Math.min(35,value.deadzone));
+  if(Number.isFinite(value?.sensitivity))out.sensitivity=Math.max(50,Math.min(150,value.sensitivity));
   return out;
 }
 export const held=(keys,bindings,action)=>(bindings[action]||[]).some(code=>keys.has(code));

@@ -23,12 +23,12 @@ export const STAGES = [
   stage('romania-3', 'Col de la Brume', 'romania', 'broken', 'fog', 2, 3550, 220, 'Une route roumaine étroite et sinueuse dans la brume.')
 ];
 export const CARS = [
-  {id:'club',name:'Horizon Club 1600',description:'La petite traction pour apprendre les spéciales. Légère, progressive et facile à placer.',power:125,mass:940,topSpeed:154,drive:'Traction',color:'#e74e35',body:'hatch',grip:1.0,acceleration:1.0},
-  {id:'alpine',name:'Alpine A110 Rallye',description:'Une berlinette française légère, inspirée des premières légendes du rallye.',power:170,mass:780,topSpeed:177,drive:'Propulsion',color:'#4088d8',body:'coupe',grip:1.03,acceleration:1.12},
-  {id:'escort',name:'Ford Escort RS Rallye',description:'Une sportive classique à propulsion. Un train arrière vivant pour les pistes de terre.',power:240,mass:1020,topSpeed:190,drive:'Propulsion',color:'#f1f1e8',body:'classic',grip:1.03,acceleration:1.18},
-  {id:'delta',name:'Lancia Delta Integrale',description:'La compacte italienne à quatre roues motrices, agile sur les routes étroites.',power:280,mass:1180,topSpeed:202,drive:'4 roues motrices',color:'#f5f2e4',body:'hatch',grip:1.12,acceleration:1.24},
-  {id:'celica',name:'Toyota Celica GT-Four',description:'Le coupé japonais à quatre roues motrices, puissant et stable à grande vitesse.',power:300,mass:1220,topSpeed:212,drive:'4 roues motrices',color:'#e9ebe6',body:'coupe',grip:1.15,acceleration:1.28},
-  {id:'quattro',name:'Audi Quattro WRC',description:'La récompense ultime : une interprétation de la légende à transmission intégrale et moteur cinq cylindres.',power:420,mass:1090,topSpeed:230,drive:'4 roues motrices',color:'#eeeeea',body:'quattro',grip:1.18,acceleration:1.40}
+  {id:'club',driveType:'fwd',wheelbase:2.48,name:'Horizon Club 1600',description:'La petite traction pour apprendre les spéciales. Légère, progressive et facile à placer.',power:125,mass:940,topSpeed:154,drive:'Traction',color:'#e74e35',body:'hatch',grip:1.0,acceleration:1.0},
+  {id:'alpine',driveType:'rwd',wheelbase:2.4,name:'Alpine A110 Rallye',description:'Une berlinette française légère, inspirée des premières légendes du rallye.',power:170,mass:780,topSpeed:177,drive:'Propulsion',color:'#4088d8',body:'coupe',grip:1.03,acceleration:1.12},
+  {id:'escort',driveType:'rwd',wheelbase:2.5,name:'Ford Escort RS Rallye',description:'Une sportive classique à propulsion. Un train arrière vivant pour les pistes de terre.',power:240,mass:1020,topSpeed:190,drive:'Propulsion',color:'#f1f1e8',body:'classic',grip:1.03,acceleration:1.18},
+  {id:'delta',driveType:'awd',wheelbase:2.48,name:'Lancia Delta Integrale',description:'La compacte italienne à quatre roues motrices, agile sur les routes étroites.',power:280,mass:1180,topSpeed:202,drive:'4 roues motrices',color:'#f5f2e4',body:'hatch',grip:1.12,acceleration:1.24},
+  {id:'celica',driveType:'awd',wheelbase:2.56,name:'Toyota Celica GT-Four',description:'Le coupé japonais à quatre roues motrices, puissant et stable à grande vitesse.',power:300,mass:1220,topSpeed:212,drive:'4 roues motrices',color:'#e9ebe6',body:'coupe',grip:1.15,acceleration:1.28},
+  {id:'quattro',driveType:'awd',wheelbase:2.52,name:'Audi Quattro WRC',description:'La récompense ultime : une interprétation de la légende à transmission intégrale et moteur cinq cylindres.',power:420,mass:1090,topSpeed:230,drive:'4 roues motrices',color:'#eeeeea',body:'quattro',grip:1.18,acceleration:1.40}
 ];
 export const CHAMPIONSHIPS = [
   {id:'alps',name:'Trophée des Alpes',region:'alps',subtitle:'NEIGE · MONTAGNE',description:'Trois spéciales enneigées pour maîtriser la glisse.',stageIds:['alps-1','alps-2','alps-3'],rewardCar:'alpine'},

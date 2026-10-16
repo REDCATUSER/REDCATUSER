@@ -1,6 +1,6 @@
 import {ACTIONS,DEFAULT_BINDINGS,keyLabel,validKey} from './settings.js';
 const $=id=>document.getElementById(id);
-const fields=['manual','copilot','cameraSetting','quality','textureQuality','resolution','windowMode','language','volume','musicVolume','engineVolume','copilotVolume','effectsVolume'];
+const fields=['manual','copilot','cameraSetting','quality','textureQuality','resolution','windowMode','language','volume','musicVolume','engineVolume','copilotVolume','effectsVolume','ghost','gamepad','vibration','damage','assist','ai','deadzone','sensitivity'];
 export class SettingsPanel{
  constructor({career,apply,onImport,onClear,voiceInfo}){
   Object.assign(this,{career,apply,onImport,onClear,voiceInfo});this.capture=null;this.isOpen=false;

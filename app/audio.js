@@ -60,7 +60,7 @@ export class RallyAudio{
  setMix({engine=1,effects=.75}={}){this.engineVolume=clamp(finite(engine,1),0,1);this.effectsVolume=clamp(finite(effects,.75),0,1)}
  setCar(spec={}){
   const audio=spec.audio||spec,identity=String(spec.id||spec.name||'').toLowerCase();
-  this.car={cylinders:clamp(finite(audio.cylinders,identity.includes('quattro')?5:4),3,8),turbo:audio.turbo!==false,
+  this.car={cylinders:clamp(finite(audio.cylinders,identity.includes('quattro')?5:4),3,8),turbo:audio.turbo??(/delta|celica|quattro/.test(identity)),
    redline:clamp(finite(audio.redline||spec.redline,7400),5500,10000),sampleRPM:clamp(finite(audio.sampleRPM,2525),1500,5000)};
   if(this.cylinderParam)this.cylinderParam.setValueAtTime(this.car.cylinders,this.ctx.currentTime);
  }
@@ -143,6 +143,9 @@ export class RallyAudio{
   if(to<from){const blip=c.createOscillator(),g=c.createGain(),t=c.currentTime;blip.type='triangle';blip.frequency.setValueAtTime(rpm/30,t);blip.frequency.exponentialRampToValueAtTime(rpm/23,t+.045);blip.frequency.exponentialRampToValueAtTime(rpm/30,t+.14);g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.055,t+.018);g.gain.exponentialRampToValueAtTime(.001,t+.16);blip.connect(g).connect(this.engineBus);blip.start();blip.stop(t+.17);blip.onended=()=>{blip.disconnect();g.disconnect()}}
  }
  click(){this.shiftSound(this.lastGear||1,(this.lastGear||1)+1)}
+ countdown(final=false){
+  if(!this.ready||!this.enabled)return;const c=this.ctx,t=c.currentTime,o=c.createOscillator(),g=c.createGain();o.frequency.value=final?880:440;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.12,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+(final?.28:.12));o.connect(g).connect(this.effectsBus);o.start(t);o.stop(t+.3);o.onended=()=>{o.disconnect();g.disconnect()};
+ }
  exhaustPop(amount=.055){
   const c=this.ctx,t=c.currentTime,osc=c.createOscillator(),gain=c.createGain();osc.type='triangle';osc.frequency.setValueAtTime(130,t);osc.frequency.exponentialRampToValueAtTime(42,t+.07);gain.gain.setValueAtTime(amount,t);gain.gain.exponentialRampToValueAtTime(.0001,t+.09);osc.connect(gain).connect(this.engineBus);osc.start();osc.stop(t+.10);osc.onended=()=>{osc.disconnect();gain.disconnect()};
  }

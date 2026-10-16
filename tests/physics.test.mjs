@@ -2,6 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, integrate, shift, resetDynamics } from '../app/physics.js';
 
+test('driven axle loading distinguishes FWD, RWD and AWD under full acceleration',()=>{
+ const fwd=createState(),rwd=createState(),awd=createState();for(let i=0;i<480;i++)for(const [s,driveType]of [[fwd,'fwd'],[rwd,'rwd'],[awd,'awd']])integrate(s,{throttle:1},1/120,{surface:'asphalt',car:{mass:1100,power:300,driveType}});
+ assert.ok(awd.speed>fwd.speed+2);assert.ok(rwd.speed>fwd.speed);
+});
+test('mechanical damage reduces power progressively without disabling the car',()=>{
+ const clean=createState(),damaged=createState();for(let i=0;i<1800;i++){integrate(clean,{throttle:1},1/120,{surface:'asphalt',car:{power:110},damage:0});integrate(damaged,{throttle:1},1/120,{surface:'asphalt',car:{power:110},damage:1})}assert.ok(clean.speed>damaged.speed+.5);assert.ok(damaged.speed>20);
+});
+
 const drive = (state, input, seconds, context = { surface: 'asphalt' }, hz = 120) => {
   for (let i = 0; i < Math.round(seconds * hz); i++) integrate(state, input, 1 / hz, context);
   return state;

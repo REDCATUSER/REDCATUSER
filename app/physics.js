@@ -98,9 +98,9 @@ function advance(s, input, dt, context) {
   const frontLimit = Math.max(1, frontNormal * grip * suspensionGrip);
   const rearLimit = Math.max(1, rearNormal * grip * suspensionGrip * (s.handbrake ? .28 : 1.04));
   const stiffness = mass / 1240;
-  const frontForce = frontLimit * Math.tanh(frontSlip * 62000 * stiffness / frontLimit);
-  const rearForce = rearLimit * Math.tanh(rearSlip * 70000 * stiffness / rearLimit);
-  const lateralForce = frontForce + rearForce;
+  let frontForce = frontLimit * Math.tanh(frontSlip * 62000 * stiffness / frontLimit);
+  let rearForce = rearLimit * Math.tanh(rearSlip * 70000 * stiffness / rearLimit);
+  let lateralForce = frontForce + rearForce;
 
   const finalDrive = 4.10 * (tuning.gearing === 'short' ? 1.13 : tuning.gearing === 'long' ? .89 : 1);
   const ratio = ratios[clamp(Math.round(finite(s.gear, 1)), 1, 6)];
@@ -124,12 +124,21 @@ function advance(s, input, dt, context) {
   const topSpeed = (configuredTopSpeed > 100 ? configuredTopSpeed / 3.6 : configuredTopSpeed)
     * (surfaceName === 'sand' ? .86 : surfaceName === 'snow' ? .92 : 1);
   const speedLimiter = clamp((topSpeed - forward) / 4, 0, 1);
-  const driveDemand = s.throttle * horsepower * 1.22 * torqueCurve * ratio * finalDrive * .86 / wheelRadius * shiftCut * revLimiter * speedLimiter;
+  const health=1-clamp(finite(context.damage),0,1)*.18;
+  const driveDemand = s.throttle * horsepower * health * 1.22 * torqueCurve * ratio * finalDrive * .86 / wheelRadius * shiftCut * revLimiter * speedLimiter;
   s.engineLoad = s.throttle * shiftCut;
   const frictionCircle = Math.sqrt(Math.max(.08, 1 - (lateralForce / Math.max(normal * grip * 1.1, 1)) ** 2));
   const availableTraction = normal * grip * frictionCircle;
-  let longitudinalForce = Math.min(driveDemand, availableTraction);
-  let driveSlip = clamp((driveDemand - availableTraction) / Math.max(availableTraction, 1), 0, 1);
+  const drivenNormal=car.driveType==='fwd'?frontNormal:car.driveType==='rwd'?rearNormal:normal;
+  const driveTraction=Math.max(1,drivenNormal*grip*frictionCircle);
+  let longitudinalForce = Math.min(driveDemand, driveTraction);
+  let driveSlip = clamp((driveDemand - driveTraction) / Math.max(driveTraction, 1), 0, 1);
+  // Driven axles share grip between propulsion and turning. FWD pushes wide
+  // under power; RWD progressively loosens the rear; AWD distributes the load.
+  const powerShare=clamp(longitudinalForce/driveTraction,0,1)*s.throttle;
+  if(car.driveType==='fwd')frontForce*=1-powerShare*.18;
+  if(car.driveType==='rwd')rearForce*=1-powerShare*.24;
+  lateralForce=frontForce+rearForce;
 
   if (s.brake > 0) {
     if (forward > .35) {
@@ -157,7 +166,9 @@ function advance(s, input, dt, context) {
   const longitudinalAcceleration = longitudinalForce / mass;
   const lateralAcceleration = (lateralForce-normal*Math.tan(crossSlope)) / mass;
   // Rotation follows tire force moments, with extra damping only at parking speed.
-  const omegaNext = clamp(omega + ((frontForce * frontArm - rearForce * rearArm) / inertia - omega * (2.4 / (1 + speed * .5))) * dt, -2.5, 2.5);
+  const stability=context.assist==='comfort'?.72:context.assist==='sport'?.16:0;
+  const correction=!s.handbrake&&speed>4?omega*stability*clamp(Math.abs(lateral)/3,0,1):0;
+  const omegaNext = clamp(omega + ((frontForce * frontArm - rearForce * rearArm) / inertia - omega * (2.4 / (1 + speed * .5))-correction) * dt, -2.5, 2.5);
   s.yawRate = -omegaNext;
   s.vx += (fx * longitudinalAcceleration + rx * lateralAcceleration) * dt;
   s.vz += (fz * longitudinalAcceleration + rz * lateralAcceleration) * dt;

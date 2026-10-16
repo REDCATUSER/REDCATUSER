@@ -20,26 +20,26 @@
 <aside id="hud">
   <div class="label">SPÉCIALE <span id="stageName"></span></div>
   <strong id="time">00:00.00</strong>
-  <div id="best">RECORD —</div>
+  <div id="best">RECORD —</div><div id="liveDelta" class="live-delta">PREMIÈRE RECONNAISSANCE</div><div class="stage-progress"><i id="stageProgressBar"></i></div>
   <div class="hud-divider"></div>
   <div id="progress">CHECKPOINT 0 / 12</div>
   <div id="distance">ARRIVÉE — KM</div>
   <div id="notice">SUIVEZ LA ROUTE JUSQU’À L’ARRIVÉE</div>
 </aside>
 <div id="countdown" class="hidden" role="status" aria-live="assertive">3</div>
-<div id="paceNote" role="status" aria-live="polite">PRÊT AU DÉPART</div>
+<div id="paceNote" role="status" aria-live="polite"><span id="paceDirection">↗</span><strong id="paceGrade"></strong><span id="paceText">PRÊT AU DÉPART</span></div><div id="sectorPopup" class="sector-popup hidden" role="status"></div>
 <section id="telemetry">
   <div><span class="label">RAPPORT</span><b id="gear">1</b><small id="gearMode">AUTO</small></div>
-  <div><b id="speed">0</b><span> KM/H</span><div class="rpm"><i id="rpmBar"></i></div><small><span id="rpm">900</span> TR/MIN</small></div>
+  <div><b id="speed">0</b><span> KM/H</span><div class="rpm"><i id="rpmBar"></i></div><small><span id="rpm">900</span> TR/MIN</small><div id="condition" class="condition"><span>ÉTAT</span><i><b id="conditionBar"></b></i><small id="conditionValue">100 %</small></div></div>
 </section>
 <canvas id="map" width="180" height="150" aria-label="Carte de la spéciale"></canvas>
 <footer id="raceControls">↑ / Z ACCÉLÉRER · ↓ / S FREIN / RECUL · ← → / Q D TOURNER · ESPACE FREIN À MAIN<br>C OU 1 / 2 / 3 CAMÉRA · MAJ RAPPORT + · CTRL GAUCHE RAPPORT − · M BOÎTE AUTO / MANUELLE · H PHARES · R REPLACER</footer>
 
 <section id="menu" class="menu-shell">
-  <header class="menu-header"><a class="wordmark" href="#" aria-label="Rally Horizon, accueil">R<span>H</span><i>RALLY<br>HORIZON</i></a><div class="edition">FIRST EDITION<span>LE RALLYE. SANS DÉTOUR.</span></div></header>
+  <header class="menu-header"><a class="wordmark" href="#" aria-label="Rally Horizon, accueil">R<span>H</span><i>RALLY<br>HORIZON</i></a><div class="edition">FIRST EDITION / V5<span>LE RALLYE. SANS DÉTOUR.</span><button id="helpButton" class="help-button">COMMENT JOUER</button></div></header>
   <div class="menu-hero">
     <div class="hero-copy"><div class="eyebrow">01 / PRENEZ LE DÉPART</div><h1>LA ROUTE.<br><em>VOTRE LÉGENDE.</em></h1><p>Un pilote. Un copilote. Une seule ligne d’arrivée.</p></div>
-    <div class="hero-art" aria-hidden="true"><div class="contour contour-a"></div><div class="contour contour-b"></div><div class="route-line"></div><span class="hero-coordinate">44° 59′ N<br>06° 07′ E</span><div class="hero-number">01</div><div class="hero-tag">18 SPÉCIALES <b>/</b> 5 CHAMPIONNATS</div></div>
+    <div class="hero-art"><div id="heroPreview" aria-label="Présentation 3D de votre voiture"></div><div class="hero-caption">VOTRE VOITURE · VOTRE HISTOIRE</div><div class="contour contour-a"></div><div class="contour contour-b"></div><div class="route-line"></div><span class="hero-coordinate">44° 59′ N<br>06° 07′ E</span><div class="hero-number">01</div><div class="hero-tag">18 SPÉCIALES <b>/</b> 5 CHAMPIONNATS</div></div>
   </div>
   <nav id="menuNav" aria-label="Menu principal"><button data-tab="championship" class="active selected"><span>01</span> CHAMPIONNAT</button><button data-tab="free"><span>02</span> SPÉCIALE LIBRE</button><button data-tab="garage"><span>03</span> GARAGE</button><button data-tab="options"><span>04</span> OPTIONS</button></nav>
 
@@ -51,7 +51,7 @@
     </section>
 
     <section id="panel-free" class="menu-panel hidden">
-      <div class="section-heading"><div><span class="eyebrow">LE PLAISIR DU CHRONO</span><h2>Une spéciale, votre rythme.</h2></div><span class="subtle">6 destinations · routes à sens unique</span></div>
+      <div class="section-heading"><div><span class="eyebrow">LE PLAISIR DU CHRONO</span><h2>Une spéciale, votre rythme.</h2></div><span id="medalProgress" class="subtle">18 spéciales · OR / ARGENT / BRONZE</span></div>
       <div class="free-layout"><div id="tracks" class="track-grid"></div><aside class="detail-panel"><div id="stageInfo"><h3>Choisissez une spéciale</h3><p>Neige, sable, asphalte ou gravier : trouvez votre terrain.</p></div><label class="check-label"><input type="checkbox" id="practice"> Entraînement sans classement</label><button class="primary" id="start">LANCER LA SPÉCIALE <span>↗</span></button></aside></div>
     </section>
 
@@ -64,6 +64,10 @@
       <div class="section-heading"><div><span class="eyebrow">À VOTRE FAÇON</span><h2>Gardez le contrôle.</h2></div><span class="subtle">Réglages enregistrés automatiquement</span></div>
       <div id="optionsForm" class="settings-grid">
         <fieldset><legend>Conduite & caméra</legend>
+          <label class="option-row"><span>Aide à la stabilité<small>Détente : correction plus douce des glissades. Expert : aucune correction.</small></span><select id="assist"><option value="comfort">Détente</option><option value="sport">Sport</option><option value="expert">Expert</option></select></label>
+          <label class="option-row"><span>Adversaires du championnat<small>Le niveau reste fixé pendant un championnat déjà commencé.</small></span><select id="ai"><option value="casual">Amateur</option><option value="club">Club</option><option value="pro">Pro</option></select></label>
+          <label class="option-row"><span>Dégâts mécaniques<small>Les contacts réduisent progressivement la puissance. Réparation au départ suivant.</small></span><input type="checkbox" id="damage" checked></label>
+          <label class="option-row"><span>Fantôme personnel<small>Votre meilleur passage sans replacement, avec la même voiture et les mêmes réglages.</small></span><input type="checkbox" id="ghost" checked></label>
           <label class="option-row"><span>Boîte manuelle<small>Maj : rapport + · Ctrl gauche : rapport − par défaut</small></span><input type="checkbox" id="manual"></label>
           <label class="option-row"><span>Caméra de départ</span><select id="cameraSetting"><option value="0">Poursuite</option><option value="1">Capot</option><option value="2">Pilote</option></select></label>
           <label class="option-row"><span>Copilote vocal<small>Les notes visuelles restent affichées</small></span><input type="checkbox" id="copilot" checked></label>
@@ -88,6 +92,7 @@
           <label class="option-row"><span>Effets & pneumatiques</span><input id="effectsVolume" type="range" min="0" max="100" value="75"><output for="effectsVolume"></output></label>
           <p class="panel-footnote">Musique originale jouée dans le menu et en conduite. Le mixage baisse pendant les annonces du copilote.</p>
         </fieldset>
+        <fieldset class="controller-settings"><legend>Manette</legend><label class="option-row"><span>Activer la manette</span><input type="checkbox" id="gamepad" checked></label><p id="controllerStatus" role="status" class="panel-footnote">Appuyez sur une touche de votre manette pour la détecter.</p><label class="option-row"><span>Zone morte du stick</span><input id="deadzone" type="range" min="0" max="35" value="12"><output for="deadzone"></output></label><label class="option-row"><span>Sensibilité du stick</span><input id="sensitivity" type="range" min="50" max="150" value="100"><output for="sensitivity"></output></label><label class="option-row"><span>Vibrations lors des contacts</span><input type="checkbox" id="vibration" checked></label><p class="panel-footnote">Stick gauche : direction · RT / LT : accélérer / freiner · A : frein à main · RB / LB : rapports + / − · Y : caméra · X : replacer · B : phares · Start : pause. Dans les menus : croix directionnelle et A pour choisir ; LB / RB pour les onglets.</p></fieldset>
         <fieldset class="keybindings"><legend>Commandes</legend><p class="panel-footnote">Cliquez sur une touche puis appuyez sur sa nouvelle commande. Retour arrière / Suppr : retirer ; Échap : annuler. Jusqu’à trois touches par action.</p><div id="bindings"></div><p id="bindingStatus" role="status" aria-live="polite"></p><button id="resetBindings" class="secondary">RÉTABLIR LES TOUCHES PAR DÉFAUT</button></fieldset>
       </div>
     </section>
@@ -95,9 +100,10 @@
   <div class="menu-footer"><span><i></i> JEU LOCAL · HORS LIGNE</span><span id="status" role="status">PRÉPARATION DU GARAGE…</span><span>RALLY HORIZON / FIRST EDITION</span></div>
 </section>
 
-<section id="pauseMenu" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle"><div class="panel compact"><div class="eyebrow">UN INSTANT AU STAND</div><h2 id="pauseTitle">EN PAUSE.</h2><p>La spéciale vous attend.</p><button id="resume" class="primary">REPRENDRE →</button><button id="restart" class="secondary">RECOMMENCER LA SPÉCIALE</button><button id="pauseSettings" class="secondary">PARAMÈTRES</button><button id="quit" class="secondary">RETOUR AU MENU</button><small>Revenir au menu abandonne la spéciale en cours.</small></div></section>
+<section id="pauseMenu" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pauseTitle"><div class="panel compact"><div class="eyebrow">UN INSTANT AU STAND</div><h2 id="pauseTitle">EN PAUSE.</h2><p>La spéciale vous attend.</p><button id="resume" class="primary">REPRENDRE →</button><button id="restart" class="secondary">RECOMMENCER LA SPÉCIALE</button><button id="pauseSettings" class="secondary">PARAMÈTRES</button><button id="pauseHelp" class="secondary">COMMANDES & CONSEILS</button><button id="quit" class="secondary">RETOUR AU MENU</button><small>Revenir au menu abandonne la spéciale en cours.</small></div></section>
 <section id="settingsOverlay" class="overlay hidden settings-overlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="panel settings-panel"><header><div><div class="eyebrow">RÉGLAGES EN COURSE</div><h2 id="settingsTitle">PARAMÈTRES.</h2></div><button id="closeSettings" class="secondary">RETOUR À LA PAUSE</button></header><div id="settingsContent"></div></div></section>
-<section id="result" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="resultTitle"><div class="panel result-panel"><div class="eyebrow" id="resultTitle">SPÉCIALE TERMINÉE</div><h2 id="resultTime" class="result-time">00:00.00</h2><p id="resultInfo"></p><div id="standings"></div><div class="result-actions"><button class="primary" id="continue">SPÉCIALE SUIVANTE →</button><button id="again" class="secondary">REJOUER</button><button id="home" class="secondary">RETOUR AU MENU</button></div></div></section>
+<section id="result" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="resultTitle"><div class="panel result-panel"><div class="eyebrow" id="resultTitle">SPÉCIALE TERMINÉE</div><h2 id="resultTime" class="result-time">00:00.00</h2><div id="resultMedal" class="result-medal"></div><p id="resultInfo"></p><p id="ghostResult" class="panel-footnote"></p><div id="standings"></div><div id="sectorResults" class="sector-results"></div><div class="result-actions"><button class="primary" id="continue">SPÉCIALE SUIVANTE →</button><button id="again" class="secondary">REJOUER</button><button id="home" class="secondary">RETOUR AU MENU</button></div></div></section>
+<section id="helpOverlay" class="overlay hidden help-overlay" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="panel help-panel"><span class="eyebrow">VOTRE PREMIÈRE SPÉCIALE</span><h2 id="helpTitle">LA BONNE TRAJECTOIRE.</h2><div class="help-grid"><article><b>01</b><h3>Préparez la voiture.</h3><p>Dans le garage, choisissez des pneus adaptés : neige en montagne, sable au Dakar, asphalte sur route et gravier sur terre.</p></article><article><b>02</b><h3>Écoutez le copilote.</h3><p>Gauche / droite 1 est très serré, 6 est rapide. Freinez avant le virage, puis accélérez progressivement en sortie. Le frein à main aide à faire pivoter l’arrière.</p></article><article><b>03</b><h3>Jouez le chrono.</h3><p>Franchissez tous les checkpoints dans l’ordre. Gagnez des médailles et les cinq championnats pour débloquer les légendes du rallye.</p></article></div><p id="helpKeys"></p><p class="panel-footnote">Les vues capot et pilote sont fixées au châssis. Un fantôme cyan représente votre meilleur passage avec la même configuration. Un replacement ajoute 5 secondes et annule l’enregistrement du fantôme de cette tentative.</p><button id="closeHelp" class="primary">C’EST PARTI →</button></div></section>
 <script src="game.js"></script>
 </body>
 </html>

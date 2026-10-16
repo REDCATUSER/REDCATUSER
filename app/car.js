@@ -5,12 +5,12 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 // Original procedural rally cars. Every surface and texture is made locally;
 // none of the cars depends on a remote model, font, image or service.
 const PROFILES = {
-  club: { label: 'CLUB 1600', length: 3.98, width: 1.78, wheelbase: 2.48, roof: 1.70, roofRear: .85, tail: 1.05, lamp: 'round', spoiler: .16, color: 0xe5e9e9, accent: 0xed513b },
-  alpine: { label: 'ALPINE SPORT', length: 4.10, width: 1.80, wheelbase: 2.40, roof: 1.58, roofRear: .60, tail: .89, lamp: 'round', spoiler: .08, color: 0x337db4, accent: 0xe8e6d5 },
-  escort: { label: 'FOREST RS', length: 4.16, width: 1.80, wheelbase: 2.50, roof: 1.69, roofRear: .66, tail: 1.00, lamp: 'round', spoiler: .13, color: 0xf1f0e5, accent: 0x396ea1 },
-  delta: { label: 'DELTA INTEGRALE', length: 3.96, width: 1.86, wheelbase: 2.48, roof: 1.73, roofRear: .96, tail: 1.10, lamp: 'quad', spoiler: .20, color: 0xf2f0df, accent: 0xd34136 },
-  celica: { label: 'CELICA GT RALLY', length: 4.40, width: 1.87, wheelbase: 2.56, roof: 1.64, roofRear: .72, tail: .95, lamp: 'oval', spoiler: .28, color: 0xebefe7, accent: 0xcb333c },
-  quattro: { label: 'AUDI QUATTRO WRC', length: 4.42, width: 1.90, wheelbase: 2.52, roof: 1.70, roofRear: .76, tail: 1.03, lamp: 'rect', spoiler: .31, color: 0xe7e5d8, accent: 0xa62c36 },
+  club: { label: 'CLUB 1600', length: 3.98, width: 1.78, wheelbase: 2.48, roof: 1.61, roofRear: .85, tail: 1.05, lamp: 'round', spoiler: .16, color: 0xe5e9e9, accent: 0xed513b },
+  alpine: { label: 'ALPINE SPORT', length: 4.10, width: 1.80, wheelbase: 2.40, roof: 1.50, roofRear: .60, tail: .89, lamp: 'round', spoiler: .08, color: 0x337db4, accent: 0xe8e6d5 },
+  escort: { label: 'FOREST RS', length: 4.16, width: 1.80, wheelbase: 2.50, roof: 1.60, roofRear: .66, tail: 1.00, lamp: 'round', spoiler: .13, color: 0xf1f0e5, accent: 0x396ea1 },
+  delta: { label: 'DELTA INTEGRALE', length: 3.96, width: 1.86, wheelbase: 2.48, roof: 1.61, roofRear: .96, tail: 1.10, lamp: 'quad', spoiler: .20, color: 0xf2f0df, accent: 0xd34136 },
+  celica: { label: 'CELICA GT RALLY', length: 4.40, width: 1.87, wheelbase: 2.56, roof: 1.55, roofRear: .72, tail: .95, lamp: 'oval', spoiler: .28, color: 0xebefe7, accent: 0xcb333c },
+  quattro: { label: 'AUDI QUATTRO WRC', length: 4.42, width: 1.90, wheelbase: 2.52, roof: 1.61, roofRear: .76, tail: 1.03, lamp: 'rect', spoiler: .31, color: 0xe7e5d8, accent: 0xa62c36 },
 };
 const AXIS_Y = new T.Vector3(0, 1, 0);
 const clamp = T.MathUtils.clamp;
@@ -28,7 +28,7 @@ function disposeGroup(group) {
     for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
       if (!material) continue;
       materials.add(material);
-      for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
+      for (const [key,value] of Object.entries(material)) if (value?.isTexture&&key!=='envMap') textures.add(value);
     }
   });
   for (const geometry of geometries) geometry.dispose();
@@ -148,10 +148,11 @@ export function createCar(scene, options = {}) {
   function build() {
     const profile = PROFILES[config.id] || PROFILES.club;
     const L = profile.length, W = profile.width, half = L / 2, axle = profile.wheelbase / 2;
-    const paint = mat(config.color ?? profile.color, .30, .34);
+    const paint = new T.MeshPhysicalMaterial({color:config.color ?? profile.color,roughness:.27,metalness:.27,clearcoat:.65,clearcoatRoughness:.26});
     const accent = mat(profile.accent, .37, .15), dark = mat(0x171d23, .80), rubber = mat(0x101419, .94);
     const satin = mat(0x333c43, .58), silver = mat(0xbac1bf, .28, .82), rimMaterial = mat(0xe3e5dc, .35, .55);
     const blackMetal = mat(0x272e33, .33, .68), seatMaterial = mat(0x222b35, .97), beltMaterial = mat(profile.accent, .9);
+    for(const material of [paint,silver,rimMaterial])if(config.environment){material.envMap=config.environment;material.envMapIntensity=.6}
     const size = TEXTURE_SIZES[config.textureQuality] || TEXTURE_SIZES.medium;
     const leather = surfaceTexture('leather', size), fabric = surfaceTexture('fabric', size), carbon = surfaceTexture('carbon', size), treadMap = surfaceTexture('tread', size), metal = surfaceTexture('metal', size);
     for (const [target, map, bump] of [[dark,leather,.007],[seatMaterial,fabric,.009],[satin,carbon,.003],[rubber,treadMap,.010],[silver,metal,.0015]]) {
@@ -253,11 +254,11 @@ export function createCar(scene, options = {}) {
       box(mirror, .15, .075, .008, 0, 0, .12, silver, .01);
     }
 
-    // Hood stampings, vents, towing eyes and rally identification.
+    function shellY(x,z){const p=section(z);return p.top+Math.sqrt(Math.max(0,1-(x/p.width)**2))*.045}
+    // Hood details follow the curved panel, eliminating coplanar speckles.
     for (const side of [-1, 1]) {
-      const crease = box(body, .017, .013, .93, side * .46, 1.046, -1.20, paint, .005);
-      crease.rotation.y = side * -.045;
-      for (let k = 0; k < 5; k++) box(body, .20, .007, .018, side * .33, 1.051, -.81 - k * .045, dark, .003);
+      line(body,Array.from({length:12},(_,k)=>{const z=-1.665+k*.93/11;return[side*.46,shellY(side*.46,z)+.009,z]}),paint,.006);
+      for (let k = 0; k < 5; k++){const z=-.81-k*.045;box(body,.20,.005,.018,side*.33,shellY(side*.33,z)+.008,z,dark,.002);}
       box(body, .045, .013, .06, side * .56, section(-half + .23).top + .035, -half + .23, blackMetal, .009);
     }
     const tow = mesh(body, new T.TorusGeometry(.045, .014, 6, 14), accent, -.47, .43, -half - .15);
@@ -277,7 +278,7 @@ export function createCar(scene, options = {}) {
       }
     }
     for (const side of [-1, 1]) {
-      box(body, .13, .008, 1.05, side * .22, 1.056, -1.21, accent, .004);
+      for(let k=0;k<12;k++){const z=-1.735+k*1.05/12,nz=z+1.05/12,x=side*.22;quad(body,[[x-.065,shellY(x-.065,z)+.005,z],[x-.065,shellY(x-.065,nz)+.005,nz],[x+.065,shellY(x+.065,nz)+.005,nz],[x+.065,shellY(x+.065,z)+.005,z]],accent);}
       box(body, .014, .075, .66, side * (W * .50 + .012), .57, .13, accent, .002);
     }
 
@@ -285,7 +286,9 @@ export function createCar(scene, options = {}) {
     const frontBase = -.86, frontRoof = -.51, rearRoof = profile.roofRear, rearBase = Math.min(half - .25, profile.roofRear + .53);
     const roofY = profile.roof;
     // Roof panel has a curved cross-section and softened edges.
-    box(body, roofWidth * 2, .09, rearRoof - frontRoof + .13, 0, roofY, (frontRoof + rearRoof) / 2, paint, .035);
+    const roofShape=new T.Shape();roofShape.moveTo(-roofWidth,-.035);roofShape.quadraticCurveTo(0,.095,roofWidth,-.035);roofShape.lineTo(roofWidth,-.075);roofShape.quadraticCurveTo(0,.045,-roofWidth,-.075);roofShape.closePath();
+    const roofGeo=new T.ExtrudeGeometry(roofShape,{depth:rearRoof-frontRoof+.13,bevelEnabled:true,bevelThickness:.012,bevelSize:.012,bevelSegments:2,steps:1,curveSegments:16});
+    mesh(body,roofGeo,paint,0,roofY,frontRoof-.065);
     for (const side of [-1, 1]) {
       const baseX = side * baseWidth, topX = side * roofWidth;
       beam(body, new T.Vector3(baseX, 1.04, frontBase), new T.Vector3(topX, roofY, frontRoof), .043, paint);
@@ -512,19 +515,23 @@ export function createCar(scene, options = {}) {
       light.visible = false; light.castShadow = false;
       root.add(light, light.target); lights.push(light);
     }
+    const eyeHeight=Math.min(1.40,roofY-.16);
     const cameraAnchors = {
       chasePosition: new T.Vector3(0, 3.15, 7.8), chaseTarget: new T.Vector3(0, 1.0, -7),
       hoodPosition: new T.Vector3(0, 1.245, -.985), hoodTarget: new T.Vector3(0, 1.16, -45),
-      cockpitPosition: new T.Vector3(-.39, 1.40, .56),
-      cockpitTarget: new T.Vector3(-.39, 1.29, -45),
+      cockpitPosition: new T.Vector3(-.39, eyeHeight, .56),
+      cockpitTarget: new T.Vector3(-.39, eyeHeight-.11, -45),
     };
-    batchStatic(body);
+    const dirtMaterial=new T.MeshStandardMaterial({color:0x77664e,roughness:1,transparent:true,opacity:0,depthWrite:false}),dirtLayer=new T.Group();body.add(dirtLayer);
+    for(const sign of [-1,1])for(let k=0;k<40;k++){const z=-half+.2+(k*1.618%1)*(L-.4),y=.47+(Math.sin(k*4.71)*.5+.5)*.33;const mark=mesh(dirtLayer,new T.CircleGeometry(.012+(k%5)*.007,7),dirtMaterial,sign*(W*.5+.025),y,z);mark.rotation.y=sign*Math.PI/2;mark.scale.set(1,.6+(k%3)*.5,1);mark.castShadow=false}
+    batchStatic(dirtLayer);
+    batchStatic(body,new Set([dirtLayer]));
     batchStatic(cockpitShell);
     for (const wheel of wheels) batchStatic(wheel.spin);
     for (const hand of hands) batchStatic(hand.hand);
     const animated = new Set([wheelBase, lever, ...hands.flatMap(hand => [hand.hand, hand.arm, hand.forearm])]);
     batchStatic(inside, animated);
-    model = { profile, paint, tire: rubber, lights, lampMaterial, rearMaterial, body, cockpitShell, gauge, gaugeTick: 1, wheelBase, wheelSpin, wheels, hands, lever };
+    model = { profile, paint, reflective:[paint,silver,rimMaterial], tire: rubber, lights, lampMaterial, rearMaterial, body, dirtMaterial, cockpitShell, gauge, gaugeTick: 1, wheelBase, wheelSpin, wheels, hands, lever };
     Object.assign(api, { exterior, inside, wheels, wheelSpin, hands, lever, cameraAnchors, textureSize:size });
     api.setHeadlights(headlights);
     root.updateMatrixWorld(true);
@@ -537,8 +544,9 @@ export function createCar(scene, options = {}) {
     object.position.copy(a).add(b).multiplyScalar(.5); object.scale.y = Math.max(.001, direction.length());
     object.quaternion.setFromUnitVectors(AXIS_Y, direction.normalize());
   }
-  function update({ steer = 0, speed = 0, dt = 0, shift = 0, rpm = 900, gear = 1, brake = false, cameraMode = 0, suspension = 0, roll = 0, wheels: wheelStates } = {}) {
+  function update({ steer = 0, speed = 0, dt = 0, shift = 0, rpm = 900, gear = 1, brake = false, cameraMode = 0, suspension = 0, roll = 0, dirt = 0, environmentLight = .6, wheels: wheelStates } = {}) {
     const { wheelSpin, wheels, body, hands, lever, gauge, cockpitShell } = model;
+    model.dirtMaterial.opacity=clamp(Number(dirt)||0,0,.65);for(const m of model.reflective)m.envMapIntensity=clamp(Number(environmentLight)||0,0,1.5);
     const finiteSteer = Number.isFinite(steer) ? clamp(steer, -1, 1) : 0;
     const finiteDt = Number.isFinite(dt) ? clamp(dt, 0, .10) : 0;
     const finiteSpeed = Number.isFinite(speed) ? speed : 0;

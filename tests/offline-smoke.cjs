@@ -22,11 +22,11 @@ const executable=process.env.RALLY_BROWSER||['/usr/bin/chromium','/usr/bin/googl
   await page.locator('[data-tab=options]').click();await page.selectOption('#quality','low');await page.selectOption('#cameraSetting','2');await page.selectOption('#language','en');
   await page.locator('[data-tab=free]').click();await page.click('#start');
   await page.waitForFunction(()=>rallyState.audio&&rallyState.voiceReady&&rallyState.musicReady&&rallyState.audioLevel>.001,null,{timeout:45000});
-  assert.equal(await page.evaluate(()=>rallyState.voiceKind),'mixed');assert.equal(await page.evaluate(()=>rallyState.visibleWheels),0);
-  await page.screenshot({path:path.join(os.tmpdir(),'rally-v4-cockpit.png')});
+  assert.equal(await page.evaluate(()=>rallyState.voiceKind),'mixed');assert.equal(await page.evaluate(()=>rallyState.visibleWheels),0);assert.equal(await page.evaluate(()=>rallyState.fov),82);
+  await page.screenshot({path:path.join(os.tmpdir(),'rally-v5-cockpit.png')});
   await page.keyboard.press('Escape');await page.click('#pauseSettings');
-  assert.equal(await page.locator('#optionsForm').isVisible(),true);await page.screenshot({path:path.join(os.tmpdir(),'rally-v4-settings.png')});
-  await page.click('#closeSettings');await page.click('#quit');await page.locator('[data-tab=garage]').click();await page.screenshot({path:path.join(os.tmpdir(),'rally-v4-garage.png')});
+  assert.equal(await page.locator('#optionsForm').isVisible(),true);await page.screenshot({path:path.join(os.tmpdir(),'rally-v5-settings.png')});
+  await page.click('#closeSettings');await page.click('#quit');await page.locator('[data-tab=garage]').click();await page.screenshot({path:path.join(os.tmpdir(),'rally-v5-garage.png')});
   assert.deepEqual(remote,[]);assert.deepEqual(errors,[]);
   console.log(`PASS offline HTML (${fileNavigation?'file://':'in-memory HTML'}): no network requests, cockpit, garage, pause settings, engine, House music, English copilot and included GPL audio source WAVs.`);
  }finally{await browser.close()}
